@@ -161,10 +161,18 @@
 .fnode .react-flow__handle-right { right: -7px; }
 
 /* ---------- Side panel ---------- */
-.editor__resize { position: relative; flex-shrink: 0; width: 9px; margin: 0 -5px 0 -4px; z-index: 5; cursor: col-resize; touch-action: none; outline: none; }
-.editor__resize::after { content: ''; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: var(--border); transition: background var(--t-fast, 0.15s), width var(--t-fast, 0.15s), left var(--t-fast, 0.15s); }
-.editor__resize:hover::after, .editor__resize:focus-visible::after, .editor__resize.is-dragging::after { left: 3px; width: 3px; border-radius: 3px; background: var(--accent); }
-body:has(.editor__resize.is-dragging) { cursor: col-resize; user-select: none; }
+/* The system resize cursor is white with a thin outline and disappears on the light panel, so this one is dark with a white outline. */
+.editor__resize,
+body:has(.editor__resize.is-dragging) {
+  --resize-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M9 8 3 14l6 6v-4.5h10V20l6-6-6-6v4.5H9z' fill='%23102a2e' stroke='white' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") 14 14, col-resize;
+}
+.editor__resize { position: relative; flex-shrink: 0; width: 11px; margin: 0 -6px 0 -5px; z-index: 5; cursor: var(--resize-cursor); touch-action: none; outline: none; }
+.editor__resize::after { content: ''; position: absolute; top: 0; bottom: 0; left: 5px; width: 1px; background: var(--border); transition: background 0.15s, width 0.15s, left 0.15s; }
+.editor__resize::before { content: ''; position: absolute; top: 50%; left: 2px; width: 7px; height: 38px; transform: translateY(-50%); border-radius: 4px; border: 1px solid var(--border); background: var(--surface); z-index: 1; opacity: 0.9; }
+.editor__resize:hover::after, .editor__resize:focus-visible::after, .editor__resize.is-dragging::after { left: 4px; width: 3px; border-radius: 3px; background: var(--accent); }
+.editor__resize:hover::before, .editor__resize:focus-visible::before, .editor__resize.is-dragging::before { border-color: var(--accent); }
+body:has(.editor__resize.is-dragging),
+body:has(.editor__resize.is-dragging) * { cursor: var(--resize-cursor) !important; user-select: none; }
 .editor__side { display: flex; flex-direction: column; flex-shrink: 0; width: 316px; background: var(--surface); }
 .tabs { position: relative; display: flex; flex-shrink: 0; padding: 0 0.6rem; border-bottom: 1px solid var(--border); }
 .tabs__bar { position: absolute; left: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; }
