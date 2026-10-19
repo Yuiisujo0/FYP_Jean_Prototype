@@ -1,5 +1,6 @@
 import { ChevronRight, Menu, Moon, Search, Sun } from 'lucide-react';
-import { matchPath, useLocation } from 'react-router-dom';
+import { Link, matchPath, useLocation } from 'react-router-dom';
+import { PROVIDER_SHORT } from '../lib/providerConfig';
 import { shortcutLabel } from '../components/CommandPalette';
 import { IconButton } from '../components/ui/Button';
 import { useDialogs } from '../state/DialogsContext';
@@ -25,7 +26,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
     ? ['Workflows', flows.find(f => f.id === editor.params.id)?.name ?? 'Editor']
     : [TITLES[pathname] ?? 'Overview'];
 
-  const statusLabel = { online: 'Model online', checking: 'Checking model…', offline: 'Model offline', unknown: 'Model unknown' }[ollama.status];
+  const statusLabel = { online: 'online', checking: 'checking…', offline: 'offline', unknown: 'unknown' }[ollama.status];
 
   return (
     <header className="topbar">
@@ -46,10 +47,10 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
           <span>Search or jump to…</span>
           <kbd>{shortcutLabel}</kbd>
         </button>
-        <span className={`topbar__status is-${ollama.status}`} title="AI service connection">
+        <Link to="/settings?tab=model" className={`topbar__status is-${ollama.status}`} title="Change the AI model in Settings">
           <i aria-hidden />
-          <span>{statusLabel}</span>
-        </span>
+          <span>{PROVIDER_SHORT[ollama.provider.kind]} · {statusLabel}</span>
+        </Link>
         <IconButton label="Toggle light / dark theme" onClick={toggleTheme}>
           <Sun size={18} className="theme-sun" />
           <Moon size={18} className="theme-moon" />

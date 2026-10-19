@@ -98,3 +98,7 @@
   .gen__bar { flex-direction: column; align-items: stretch; padding: 0.5rem; }
   .gen__count { order: 2; text-align: center; }
 }
+
+.gen__model { margin: 0.75rem 0 0; color: var(--text-3); font-size: 0.8125rem; text-align: center; }
+.gen__model b { color: var(--text-2); font-weight: 620; }
+.gen__model a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
