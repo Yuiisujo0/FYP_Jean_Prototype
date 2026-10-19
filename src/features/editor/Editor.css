@@ -161,7 +161,11 @@
 .fnode .react-flow__handle-right { right: -7px; }
 
 /* ---------- Side panel ---------- */
-.editor__side { display: flex; flex-direction: column; flex-shrink: 0; width: 316px; background: var(--surface); border-left: 1px solid var(--border); }
+.editor__resize { position: relative; flex-shrink: 0; width: 9px; margin: 0 -5px 0 -4px; z-index: 5; cursor: col-resize; touch-action: none; outline: none; }
+.editor__resize::after { content: ''; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: var(--border); transition: background var(--t-fast, 0.15s), width var(--t-fast, 0.15s), left var(--t-fast, 0.15s); }
+.editor__resize:hover::after, .editor__resize:focus-visible::after, .editor__resize.is-dragging::after { left: 3px; width: 3px; border-radius: 3px; background: var(--accent); }
+body:has(.editor__resize.is-dragging) { cursor: col-resize; user-select: none; }
+.editor__side { display: flex; flex-direction: column; flex-shrink: 0; width: 316px; background: var(--surface); }
 .tabs { position: relative; display: flex; flex-shrink: 0; padding: 0 0.6rem; border-bottom: 1px solid var(--border); }
 .tabs__bar { position: absolute; left: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; }
 .tabs__bar.is-ready { transition-property: transform, width, opacity; transition-duration: 0.26s; transition-timing-function: var(--ease); }
@@ -309,7 +313,8 @@
   .editor { height: auto; min-height: calc(100dvh - var(--topbar-h)); }
   .editor__body { flex-direction: column; }
   .editor__canvas { height: 56vh; flex: none; }
-  .editor__side { width: 100%; border-left: 0; border-top: 1px solid var(--border); }
+  .editor__side { width: 100% !important; border-left: 0; border-top: 1px solid var(--border); }
+  .editor__resize { display: none; }
   .etool { gap: 0.4rem; padding: 0 0.6rem; }
   .etool__saved,
   .etool__label,

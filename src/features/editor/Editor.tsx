@@ -9,6 +9,7 @@ import { categoryOf } from '../../data/nodeKinds';
 import { findDataset } from '../../lib/engine';
 import { plural } from '../../lib/format';
 import { errorCount } from '../../lib/validate';
+import { KEYS, readString, writeString } from '../../lib/storage';
 import { useDatasets } from '../../state/useDatasets';
 import { useWorkspace } from '../../state/WorkspaceContext';
 import type { Flow } from '../../types';
@@ -24,10 +25,46 @@ import './Editor.css';
 const NODE_TYPES = { step: FlowNode };
 type Tab = 'add' | 'inspect' | 'ask' | 'check';
 
+const PANEL_MIN = 280;
+const PANEL_DEFAULT = 316;
+const clampPanel = (w: number) => Math.round(Math.min(Math.max(w, PANEL_MIN), Math.min(760, window.innerWidth * 0.65)));
+
+/** The width of the right-hand tools panel. The user drags the bar on its left edge (or uses the arrow keys); it is remembered. */
+function useSidePanelWidth() {
+  const [width, setWidth] = useState(() => clampPanel(Number(readString(KEYS.sidePanel, '')) || PANEL_DEFAULT));
+  const [dragging, setDragging] = useState(false);
+  const commit = useCallback((w: number) => { setWidth(w); writeString(KEYS.sidePanel, String(w)); }, []);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = width;
+    let latest = width;
+    setDragging(true);
+    const move = (ev: PointerEvent) => { latest = clampPanel(startW + (startX - ev.clientX)); setWidth(latest); };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setDragging(false);
+      commit(latest);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const step = e.shiftKey ? 80 : 24;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); commit(clampPanel(width + step)); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); commit(clampPanel(width - step)); }
+    else if (e.key === 'Home' || e.key === 'Enter') { e.preventDefault(); commit(PANEL_DEFAULT); }
+  };
+  return { width, dragging, onPointerDown, onKeyDown, reset: () => commit(PANEL_DEFAULT) };
+}
+
 export function Editor({ flow }: { flow: Flow }) {
   const { updateFlow, exportFlow } = useWorkspace();
   const save = useCallback((patch: Partial<Flow>) => updateFlow(flow.id, patch), [updateFlow, flow.id]);
   const editor = useFlowEditor(flow, save);
+  const panel = useSidePanelWidth();
   const { nodes, edges, runs, issues, selected } = editor;
   const { screenToFlowPosition, fitView } = useReactFlow();
   // A freshly generated workflow opens on Check, where the plain-English summary and the preview are.
@@ -172,7 +209,20 @@ export function Editor({ flow }: { flow: Flow }) {
           )}
         </div>
 
-        <aside className="editor__side" aria-label="Workflow tools">
+        <div
+          className={`editor__resize ${panel.dragging ? 'is-dragging' : ''}`}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the tools panel"
+          aria-valuenow={panel.width}
+          aria-valuemin={PANEL_MIN}
+          tabIndex={0}
+          title="Drag to resize · double-click to reset"
+          onPointerDown={panel.onPointerDown}
+          onKeyDown={panel.onKeyDown}
+          onDoubleClick={panel.reset}
+        />
+        <aside className="editor__side" aria-label="Workflow tools" style={{ width: panel.width }}>
           <div className="tabs" role="tablist" ref={tabsRef}>
             <span
               className={`tabs__bar ${tabSlider.ready ? 'is-ready' : ''}`}

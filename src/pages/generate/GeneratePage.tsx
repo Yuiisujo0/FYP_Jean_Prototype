@@ -1,12 +1,14 @@
-import { AlertCircle, ArrowRight, Check, LoaderCircle, ShieldCheck, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, History, LoaderCircle, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { checkByRunning } from '../../lib/agent';
 import { browserAgentDeps } from '../../lib/agentDeps';
 import { generateFlow } from '../../lib/api';
 import { chainEdges, defaultPosition, orderSteps } from '../../lib/flowGraph';
+import { addHistory, clearHistory, loadHistory, type HistoryItem } from '../../lib/history';
 import { datasetBriefs } from '../../lib/library';
+import { smallTalk, type SmallTalk } from '../../lib/smalltalk';
 import type { AgentRound, Flow } from '../../types';
 import { useWorkspace } from '../../state/WorkspaceContext';
 import './GeneratePage.css';
@@ -20,7 +22,7 @@ const EXAMPLES = [
 ];
 
 export function GeneratePage() {
-  const { addFlow, notify } = useWorkspace();
+  const { flows, addFlow, notify } = useWorkspace();
   const navigate = useNavigate();
   const location = useLocation();
   const initial = (location.state as { prompt?: string } | null)?.prompt ?? '';
@@ -33,6 +35,9 @@ export function GeneratePage() {
   const [stage, setStage] = useState<'generate' | 'test'>('generate');
   const [rounds, setRounds] = useState<AgentRound[]>([]);
   const abort = useRef<AbortController | null>(null);
+  // A greeting or "what can you do" is answered here, without calling the AI.
+  const [chat, setChat] = useState<{ user: string; talk: SmallTalk } | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>(loadHistory);
 
   useEffect(() => () => abort.current?.abort(), []);
 
@@ -46,6 +51,14 @@ export function GeneratePage() {
   const run = async () => {
     const text = prompt.trim();
     if (!text || busy) return;
+    const talk = smallTalk(text);
+    if (talk) {
+      setChat({ user: text, talk });
+      setError('');
+      setPrompt('');
+      return;
+    }
+    setChat(null);
     setError('');
     setBusy(true);
     setStage('generate');
@@ -71,6 +84,7 @@ export function GeneratePage() {
       }
       if (controller.signal.aborted) return;
       addFlow(flow);
+      setHistory(addHistory(text, flow.id));
       notify(result.valid ? `Workflow generated${status} in ${((Date.now() - started) / 1000).toFixed(1)} s` : 'Workflow generated with issues to review');
       navigate(`/editor/${flow.id}`, { state: { fresh: true } });
     } catch (e) {
@@ -108,6 +122,28 @@ export function GeneratePage() {
         </div>
       </div>
 
+      {chat && !busy && (
+        <div className="gen__chat" aria-live="polite">
+          <p className="gen__you">{chat.user}</p>
+          <div className="gen__reply">
+            <MessageCircle size={17} aria-hidden />
+            <div>
+              <p>{chat.talk.reply}</p>
+              {chat.talk.suggestions.length > 0 && (
+                <div className="gen__list">
+                  {chat.talk.suggestions.map(text => (
+                    <button type="button" key={text} onClick={() => { setPrompt(text); setChat(null); }}>
+                      <span>{text}</span>
+                      <ArrowRight size={16} aria-hidden />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="gen__error" role="alert">
           <AlertCircle size={18} aria-hidden />
@@ -138,6 +174,26 @@ export function GeneratePage() {
         </ol>
       )}
 
+      {!busy && history.length > 0 && (
+        <section className="gen__examples gen__history">
+          <div className="gen__history-head">
+            <h2><History size={14} aria-hidden /> Your recent requests</h2>
+            <button type="button" className="gen__clear" onClick={() => setHistory(clearHistory())}>Clear</button>
+          </div>
+          <div className="gen__list">
+            {history.map(h => (
+              <div key={h.id} className="gen__hrow">
+                <button type="button" onClick={() => { setPrompt(h.text); setChat(null); }} title="Use this request again">
+                  <span>{h.text}</span>
+                  <small>{new Date(h.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</small>
+                </button>
+                {flows.some(f => f.id === h.flowId) && <Link to={`/editor/${h.flowId}`} className="gen__open">Open workflow</Link>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {!busy && (
         <section className="gen__examples">
           <h2>Or start from an example</h2>
@@ -154,7 +210,7 @@ export function GeneratePage() {
 
       <p className="gen__foot">
         <ShieldCheck size={16} aria-hidden />
-        Generated by a local model through the jwork backend, then checked against the supported operations.
+        Drafted by an AI model, then checked against the supported operations and tested on your data in this browser.
       </p>
     </div>
   );
