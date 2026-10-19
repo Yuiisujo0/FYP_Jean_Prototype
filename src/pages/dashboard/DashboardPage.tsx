@@ -16,12 +16,25 @@ const STEPS = [
   { title: 'Approve', text: 'Sign it off and download an Excel report.' },
 ];
 
-/** The four steps. They reveal as the section scrolls into view, then the highlight walks along the path by itself; a click holds it on one step. */
+const PATH_D = 'M22 22 C 150 22, 150 50, 272 50 S 400 22, 522 22 S 650 50, 772 50 S 900 22, 990 22';
+const STOP_X = [22, 272, 522, 772];
+const LOOP_MS = 9000;   // one pass along the path
+const HOLD_MS = 1400;   // rest at the end, then start over
+
+/**
+ * The four steps. They reveal as the section scrolls into view, then one smooth light travels the whole path
+ * without pausing (a single continuous motion, not step-by-step jumps), lighting each step as it passes.
+ * Pointing at a step holds the light there; moving away lets it carry on from that spot.
+ */
 function HowItWorks() {
   const root = useRef<HTMLElement>(null);
+  const pathEl = useRef<SVGPathElement>(null);
+  const doneEl = useRef<SVGPathElement>(null);
+  const dotEl = useRef<HTMLSpanElement>(null);
+  const progress = useRef(0);        // 0 to 1 along the path
+  const held = useRef<number | null>(null);
   const [seen, setSeen] = useState(false);
   const [active, setActive] = useState(0);
-  const [held, setHeld] = useState(false);
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   useEffect(() => {
@@ -33,30 +46,75 @@ function HowItWorks() {
   }, []);
 
   useEffect(() => {
-    if (!seen || held || reduced) return;
-    const timer = setInterval(() => setActive(a => (a + 1) % STEPS.length), 2600);
-    return () => clearInterval(timer);
-  }, [seen, held, reduced]);
+    const path = pathEl.current;
+    const done = doneEl.current;
+    const dot = dotEl.current;
+    if (!seen || !path || !done || !dot) return;
+    const total = path.getTotalLength();
+    // Where along the path each step sits, found once by walking the path until it reaches that step's x.
+    const stopAt = STOP_X.map(x => {
+      let lo = 0, hi = total;
+      for (let k = 0; k < 24; k++) { const mid = (lo + hi) / 2; if (path.getPointAtLength(mid).x < x) lo = mid; else hi = mid; }
+      return lo / total;
+    });
+    const draw = (t: number, fade: number) => {
+      done.style.strokeDashoffset = String(100 - t * 100);
+      const pt = path.getPointAtLength(t * total);
+      dot.style.left = `${pt.x / 10}%`;
+      dot.style.top = `${pt.y}px`;
+      dot.style.opacity = String(fade);
+      let idx = 0;
+      stopAt.forEach((s, i) => { if (t >= s - 0.012) idx = i; });
+      setActive(prev => (prev === idx ? prev : idx));
+    };
+    if (reduced) { draw(stopAt[0], 0); return; }
+
+    let raf = 0;
+    let last = performance.now();
+    let rest = 0;
+    const tick = (now: number) => {
+      const dt = Math.min(now - last, 64);
+      last = now;
+      if (held.current !== null) {
+        // ease toward the held step so the light glides there instead of jumping
+        const target = stopAt[held.current];
+        progress.current += (target - progress.current) * Math.min(1, dt / 160);
+        rest = 0;
+        draw(progress.current, 1);
+      } else if (progress.current >= 1) {
+        rest += dt;
+        draw(1, Math.max(0, 1 - rest / HOLD_MS * 1.6));
+        if (rest >= HOLD_MS) { progress.current = 0; rest = 0; }
+      } else {
+        progress.current = Math.min(1, progress.current + dt / LOOP_MS);
+        draw(progress.current, progress.current < 0.03 ? progress.current / 0.03 : 1);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [seen, reduced]);
 
   return (
     <section className={`river ${seen ? 'is-seen' : ''}`} aria-label="How it works" ref={root}>
       <h2>How it works</h2>
       <p>Four easy steps, and you stay in charge of the last one.</p>
-      <div className="stops" onMouseLeave={() => setHeld(false)}>
+      <div className="stops" onMouseLeave={() => { held.current = null; }}>
         <svg className="stops__path" viewBox="0 0 1000 72" preserveAspectRatio="none" aria-hidden>
-          <path className="stops__dots" d="M22 22 C 150 22, 150 50, 272 50 S 400 22, 522 22 S 650 50, 772 50 S 900 22, 990 22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="2 9" strokeLinecap="round" pathLength={100} />
-          <path className="stops__done" d="M22 22 C 150 22, 150 50, 272 50 S 400 22, 522 22 S 650 50, 772 50 S 900 22, 990 22" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" pathLength={100} strokeDasharray="100" strokeDashoffset={100 - (active / (STEPS.length - 1)) * 76} vectorEffect="non-scaling-stroke" />
+          <path ref={pathEl} className="stops__dots" d={PATH_D} fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="2 9" strokeLinecap="round" />
+          <path ref={doneEl} className="stops__done" d={PATH_D} fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" pathLength={100} strokeDasharray="100" strokeDashoffset="100" />
         </svg>
+        <span ref={dotEl} className="stops__dot" aria-hidden />
         {STEPS.map((s, i) => (
           <button
             type="button"
             className={`stop ${i === active ? 'is-active' : i < active ? 'is-past' : ''}`}
             key={s.title}
             style={{ transitionDelay: seen ? `${i * 120}ms` : '0ms' }}
-            onMouseEnter={() => { setActive(i); setHeld(true); }}
-            onFocus={() => { setActive(i); setHeld(true); }}
-            onBlur={() => setHeld(false)}
-            onClick={() => setActive(i)}
+            onMouseEnter={() => { held.current = i; }}
+            onFocus={() => { held.current = i; }}
+            onBlur={() => { held.current = null; }}
+            onClick={() => { held.current = i; }}
             aria-current={i === active ? 'step' : undefined}
           >
             <span className="stop__no">{i + 1}</span>
