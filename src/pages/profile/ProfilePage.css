@@ -1,0 +1,49 @@
+.profile { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.profile__card { overflow: hidden; }
+.profile__hero {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.75rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+}
+.profile__hero h2 { font-size: 1.5rem; }
+.profile__hero p { color: var(--text-2); margin-top: 0.15rem; }
+.profile__form { display: grid; gap: 1.1rem; padding: 1.75rem; }
+
+.swatches { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.swatch {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.25);
+  transition: transform 0.14s;
+}
+.swatch:hover { transform: scale(1.1); }
+.swatch[aria-checked='true'] { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--text); }
+.profile__saved { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-3); font-size: 0.8125rem; }
+.profile__saved svg { color: var(--ok); }
+
+.profile__side { display: grid; gap: 1.25rem; }
+.profile__panel { padding: 1.4rem; display: grid; gap: 0.9rem; }
+.profile__panel h3 { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; }
+.profile__panel > p { color: var(--text-2); font-size: 0.875rem; }
+.profile__stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 0; }
+.profile__stats div { padding: 0.8rem 0.9rem; border-radius: var(--r-sm); background: var(--sunken); }
+.profile__stats dt { color: var(--text-3); font-size: 0.8125rem; }
+.profile__stats dd { margin: 0.1rem 0 0; font: 650 1.6rem/1.1 var(--font-display); letter-spacing: -0.03em; }
+.profile__model { color: var(--text-3); font-size: 0.8125rem; }
+.profile__model b { color: var(--text-2); font-weight: 600; }
+.profile__actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.profile__warn { color: var(--text-3); font-size: 0.8125rem; }
+
+@media (max-width: 960px) {
+  .profile { grid-template-columns: 1fr; }
+}
+.profile__backup { color: var(--text-2); font-size: 0.875rem; }
+.profile__backup.is-never { color: var(--warn, var(--text-2)); font-weight: 600; }

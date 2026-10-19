@@ -1,0 +1,14 @@
+.flow-preview { display: flex; align-items: center; }
+.flow-preview__item { display: inline-flex; align-items: center; }
+.flow-preview__node {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--cat-soft);
+  color: var(--cat);
+  border: 1px solid color-mix(in srgb, var(--cat) 28%, transparent);
+}
+.flow-preview__link { width: 10px; height: 2px; background: var(--border-strong); }
+.flow-preview__more { margin-left: 6px; font: 500 0.75rem var(--font-mono); color: var(--text-3); }

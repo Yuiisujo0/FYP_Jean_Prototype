@@ -1,2 +1,26 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><meta name="theme-color" content="#f6f7f5"/><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='11' fill='%2328785e'/%3E%3Cpath d='M10 12h8v7h6v8h7' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"/><title>JWork — Workflow intelligence</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="JWork turns plain-language requests into structured, validated workflows using a local model." />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230e7c72'/%3E%3Cpath d='M9.5 11.5h6.5a3 3 0 0 1 3 3v3a3 3 0 0 0 3 3h1' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' opacity='.55'/%3E%3Ccircle cx='9.5' cy='11.5' r='3' fill='white'/%3E%3Ccircle cx='22.5' cy='20.5' r='3' fill='white'/%3E%3C/svg%3E" />
+    <title>JWork · Workflow studio</title>
+    <script>
+      // Set the theme before first paint so dark mode never flashes white.
+      (function () {
+        try {
+          var pref = localStorage.getItem('jwork.theme') || 'system';
+          var dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+          document.documentElement.dataset.density = localStorage.getItem('jwork.density') === 'compact' ? 'compact' : 'comfortable';
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

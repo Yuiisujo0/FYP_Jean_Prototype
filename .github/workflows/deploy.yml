@@ -34,6 +34,13 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          # The deployed Worker's address. Set it under Settings > Secrets and variables > Actions > Variables.
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+
+      - name: Add 404 fallback for deep links
+        # GitHub Pages does not rewrite SPA routes, so a reload on /workflows would 404. Serving the app as the 404 page fixes it.
+        run: cp dist/index.html dist/404.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

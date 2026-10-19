@@ -1,0 +1,15 @@
+name = "jwork-ai"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+# Workers AI binding: the Worker reaches the models through env.AI, so no API token is stored anywhere.
+[ai]
+binding = "AI"
+
+[vars]
+# Browser origins that may call this Worker. Change the first one to your own GitHub Pages address.
+ALLOWED_ORIGINS = "https://yuiisujo0.github.io,http://localhost:5173,http://localhost:5174"
+# Strongest first; the next one is used if the first cannot answer (outage, quota).
+MODELS = "@cf/openai/gpt-oss-20b,@cf/meta/llama-3.1-8b-instruct"
+MAX_REQUESTS_PER_MINUTE = "10"
+# AI_ENABLED = "false"   # uncomment and redeploy to switch generation off

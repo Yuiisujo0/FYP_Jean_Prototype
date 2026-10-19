@@ -1,0 +1,143 @@
+/* The welcome cover. It is a dark, self-contained scene (it does not follow the light / dark theme) laid over the app. */
+
+/* One page. While the Overview is showing, the page is taller by the cover's travel (a spacer above it), so the page's own scrollbar
+   runs through the cover and the Overview. The cover is fixed over the first screen and the app underneath is pinned to the screen
+   (position: fixed) while it is open, so it does not move against the scroll. When the cover closes the app goes back into the
+   flow at exactly the same place, and simply scrolls. The page is then spacer + one screen tall, so the cover can always finish. */
+html.cover-pad::before { content: ''; display: block; height: var(--cover-travel, 0px); }
+html.cover-on #root { position: fixed; inset: 0; overflow: hidden; }
+
+.landing {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #eef8fb;
+  background: linear-gradient(125deg, #020918 0%, #041a47 36%, #05448a 70%, #0b94b4 108%);
+  font-family: var(--font-sans);
+  outline: none;
+}
+/* The iris: once it opens, the cover has a growing hole that shows the app underneath. */
+.landing.is-iris {
+  -webkit-mask-image: radial-gradient(circle at var(--cx) var(--cy), transparent var(--r), #000 calc(var(--r) + 1px));
+  mask-image: radial-gradient(circle at var(--cx) var(--cy), transparent var(--r), #000 calc(var(--r) + 1px));
+}
+.landing__ring {
+  position: fixed;
+  z-index: 101;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 2px solid rgb(205 255 249 / 0.95);
+  box-shadow: 0 0 44px 6px rgb(95 227 214 / 0.6), inset 0 0 44px 6px rgb(95 227 214 / 0.35);
+  translate: -50% -50%;
+  opacity: 0;
+}
+.landing__flash { position: fixed; inset: 0; z-index: 101; pointer-events: none; opacity: 0; }
+
+/* slow light fields and grain */
+.landing__aurora { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.landing__aurora i { position: absolute; border-radius: 50%; filter: blur(60px); will-change: transform; }
+.landing__aurora i:nth-child(1) { width: 72vw; height: 72vw; left: 38%; top: -26%; background: radial-gradient(circle, rgb(20 200 255 / 0.5), transparent 66%); animation: landing-a 42s ease-in-out infinite alternate; }
+.landing__aurora i:nth-child(2) { width: 62vw; height: 62vw; left: -18%; top: 44%; background: radial-gradient(circle, rgb(30 90 255 / 0.5), transparent 66%); animation: landing-b 54s ease-in-out infinite alternate; }
+.landing__aurora i:nth-child(3) { width: 54vw; height: 54vw; right: -12%; bottom: -30%; background: radial-gradient(circle, rgb(70 235 225 / 0.42), transparent 66%); animation: landing-c 48s ease-in-out infinite alternate; }
+@keyframes landing-a { to { transform: translate3d(-10vw, 9vh, 0) scale(1.12); } }
+@keyframes landing-b { to { transform: translate3d(12vw, -10vh, 0) scale(1.1); } }
+@keyframes landing-c { to { transform: translate3d(-9vw, -8vh, 0) scale(1.15); } }
+.landing__grain {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0.07; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+.landing__scene { position: absolute; inset: 0; z-index: 1; }
+.landing__canvas,
+.landing__bloom { position: absolute; inset: 0; width: 100%; height: 100%; }
+.landing__bloom { filter: blur(12px); mix-blend-mode: screen; }
+.landing__bloom--orb { filter: blur(16px); opacity: 0.9; }
+.landing__vignette { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: radial-gradient(120% 100% at 70% 48%, transparent 45%, rgb(1 8 14 / 0.6) 100%), linear-gradient(90deg, rgb(1 8 18 / 0.72) 0%, rgb(1 8 18 / 0.4) 34%, transparent 52%), linear-gradient(180deg, rgb(1 8 18 / 0.4) 0%, transparent 16%, transparent 84%, rgb(1 8 18 / 0.5) 100%); }
+
+/* top bar */
+.landing__bar, .landing__mid, .landing__bot { position: relative; z-index: 3; }
+.landing__bar { display: flex; align-items: center; justify-content: space-between; padding: 24px clamp(24px, 6vw, 96px) 0; }
+.landing__brand { display: flex; align-items: center; gap: 12px; font: 700 1.5rem var(--font-display); letter-spacing: -0.045em; }
+.landing__bar-right { display: flex; align-items: center; gap: 14px; color: #a9c4d6; font-size: 0.875rem; }
+.landing__hello { font-size: 1.4rem; line-height: 1; }
+.landing__status { display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px; border-radius: 999px; background: rgb(255 255 255 / 0.08); white-space: nowrap; }
+.landing__status i { width: 9px; height: 9px; border-radius: 50%; background: #e0a43a; box-shadow: 0 0 0 4px rgb(224 164 58 / 0.2); }
+.landing__status.is-online i { background: #4fe0a0; box-shadow: 0 0 0 4px rgb(79 224 160 / 0.2); }
+.landing__status.is-checking i, .landing__status.is-unknown i { background: #8fa0b5; box-shadow: 0 0 0 4px rgb(143 160 181 / 0.2); }
+
+/* copy */
+.landing__mid { flex: 1; display: flex; align-items: center; padding: 0 clamp(24px, 6vw, 96px); min-height: 0; }
+.landing__copy { max-width: min(720px, 46vw); }
+.landing__headline { font-size: clamp(46px, 6vw, 96px); font-weight: 700; line-height: 0.96; letter-spacing: -0.04em; text-wrap: balance; }
+.landing__ln { display: block; }
+.landing__wm { display: inline-block; overflow: clip; padding: 0.08em 0.04em 0.14em; margin: -0.08em -0.04em -0.14em; vertical-align: top; }
+.landing__wi { display: inline-block; }
+.landing__hw { color: rgb(238 248 251 / 0.5); transition: color 0.7s var(--ease); }
+.landing__hw.lit { color: #eef8fb; }
+.landing__hw.now { color: #5fe3d6; }
+.landing__lead { margin-top: 26px; max-width: 46ch; font-size: clamp(16px, 1.3vw, 19px); line-height: 1.55; color: #a9c4d6; }
+.landing__lead b { color: #eef8fb; font-weight: 650; }
+.landing__chat {
+  margin-top: 30px; width: min(560px, 100%); display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 24px; border-radius: 999px;
+  background: #f3fbfc; color: #1f8a85; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.6) inset, 0 24px 50px -18px rgb(0 0 0 / 0.7); transition: box-shadow 0.3s;
+}
+.landing__chat:focus-within { box-shadow: 0 0 0 1px rgb(255 255 255 / 0.6) inset, 0 0 0 6px rgb(91 141 255 / 0.35), 0 24px 50px -18px rgb(0 0 0 / 0.7); }
+.landing__chat svg { flex: none; }
+.landing__chat input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: #0d2a30; font: 500 1.125rem var(--font-sans); height: 54px; box-shadow: none; }
+.landing__chat input::placeholder { color: #557479; opacity: 1; }
+.landing__send {
+  height: 52px; padding: 0 24px; border: 0; border-radius: 999px; background: #1f8a85; color: #fff; font: 700 1rem var(--font-sans);
+  display: inline-flex; align-items: center; gap: 8px; transition-property: background-color, scale; transition-duration: 0.16s;
+}
+.landing__send:hover { background: #14675f; }
+.landing__send:active { scale: 0.96; }
+.landing__tries { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: #a9c4d6; font-size: 0.875rem; }
+.landing__tries button {
+  border: 0; border-radius: 999px; padding: 8px 15px; background: rgb(255 255 255 / 0.07); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12) inset;
+  color: #eef8fb; font-size: 0.875rem; transition-property: background-color, translate; transition-duration: 0.2s; transition-timing-function: var(--ease);
+}
+.landing__tries button:hover { background: rgb(91 141 255 / 0.25); translate: 0 -2px; }
+.landing__tries button:active { scale: 0.96; }
+.landing :focus-visible { outline: 2px solid #5fe3d6; outline-offset: 3px; box-shadow: none; }
+.landing__chat input:focus-visible { outline: none; }
+
+/* bottom */
+.landing__bot { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding: 18px clamp(24px, 6vw, 96px) 40px; }
+.landing__promises { display: flex; flex-wrap: wrap; gap: 12px 36px; color: #a9c4d6; font-size: 0.875rem; }
+.landing__promises span { display: inline-flex; align-items: center; gap: 9px; white-space: nowrap; }
+.landing__promises svg { color: #5fe3d6; }
+.landing__cue { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; color: #a9c4d6; font-size: 0.8125rem; padding: 8px 4px; }
+.landing__cue svg { animation: landing-bob 2.2s ease-in-out infinite; }
+.landing__cue:hover { color: #eef8fb; }
+@keyframes landing-bob { 50% { translate: 0 5px; } }
+
+@media (max-width: 1000px) {
+  .landing__copy { max-width: 100%; }
+  .landing__more { display: none; }
+  .landing__vignette { background: linear-gradient(180deg, rgb(1 8 18 / 0.75) 0%, rgb(1 8 18 / 0.45) 55%, rgb(1 8 18 / 0.1) 100%); }
+}
+@media (max-width: 640px) {
+  .landing__hello { display: none; }
+  .landing__status { font-size: 0; gap: 0; padding: 0 14px; }
+  .landing__send { padding: 0 18px; }
+  .landing__send svg { display: none; }
+  .landing__promises, .landing__tries { display: none; }
+  .landing__cue { margin-left: auto; }
+  .landing__mid { align-items: flex-start; padding-top: 56px; }
+  .landing__headline { font-size: 52px; }
+  .landing__chat { margin-top: 22px; } .landing__chat input { font-size: 1rem; }
+}
+@media (max-height: 760px) and (min-width: 1001px) {
+  .landing__more { display: none; }
+  .landing__chat { margin-top: 22px; }
+  .landing__headline { font-size: clamp(46px, 5.2vw, 84px); }
+}
+
+/* The Overview arrives with the iris. That is done in Landing.tsx by a GSAP timeline scrubbed by the scroll, not by CSS animations. */
+
+@media (prefers-reduced-motion: reduce) {
+  .landing__aurora i, .landing__cue svg { animation: none; }
+}

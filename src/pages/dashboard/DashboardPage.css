@@ -1,0 +1,89 @@
+/* The Overview, laid out like the landing page's workspace (design-previews/S-orbit.html):
+   a big welcome, the prompt, three large counts, "How it works" along a dotted path, and pebble-shaped recent workflows. */
+.dash { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4.5rem; padding-top: 2rem; }
+
+/* ---------- Welcome ---------- */
+.dash__top { min-width: 0; }
+.welcome { font-size: clamp(2.2rem, 3.6vw, 3.25rem); font-weight: 700; line-height: 1.05; letter-spacing: -0.04em; }
+.welcome em { font-style: normal; color: var(--accent); }
+
+
+/* ---------- Counts ---------- */
+.counts { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1rem 4rem; margin-top: -2rem; }
+.count { display: grid; text-decoration: none; color: inherit; transition: translate 0.25s var(--ease); }
+.count:hover { translate: 0 -3px; }
+.count b { font: 700 4rem/1 var(--font-display); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.count > span { margin-top: 0.3rem; color: var(--text-2); font-size: 0.95rem; }
+.count__on { display: inline-flex !important; align-items: center; gap: 0.65rem; margin-top: 1rem !important; color: var(--text) !important; font: 700 1.6rem/1.1 var(--font-display) !important; }
+.count__on i { width: 10px; height: 10px; border-radius: 50%; background: #e0a43a; box-shadow: 0 0 0 4px rgb(224 164 58 / 0.22); }
+.count__on.is-online i { background: #3bbf8a; box-shadow: 0 0 0 4px rgb(59 191 138 / 0.25); }
+.count__on.is-checking i, .count__on.is-unknown i { background: #8fa0b5; box-shadow: 0 0 0 4px rgb(143 160 181 / 0.22); }
+.count small { margin-top: 0.3rem; color: var(--text-3); font-size: 0.875rem; }
+
+/* ---------- Sections ---------- */
+.dash h2 { font-size: 1.9rem; letter-spacing: -0.03em; }
+.head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 1.2rem; }
+.head p { color: var(--text-3); font-size: 0.9rem; margin-top: 0.25rem; }
+.link-arrow { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--accent-text); font-weight: 650; font-size: 0.95rem; text-decoration: none; }
+.link-arrow:hover { text-decoration: underline; }
+
+/* ---------- How it works ---------- */
+.river > p { color: var(--text-3); margin-top: 0.3rem; }
+.stops { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-top: 1.9rem; }
+.stops__path { position: absolute; left: 0; top: 0; width: 100%; height: 72px; overflow: visible; pointer-events: none; color: var(--accent); }
+.stop { position: relative; padding-top: 3.5rem; }
+.stop:nth-child(even) { padding-top: 5.25rem; }
+.stop__no {
+  position: absolute; top: 0; left: 0; z-index: 1;
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  background: var(--surface); box-shadow: var(--shadow-2); color: var(--accent-text);
+  font: 700 1.1rem var(--font-display);
+}
+.stop:nth-child(even) .stop__no { top: 1.75rem; }
+.stop h3 { font-size: 1.3rem; }
+.stop p { color: var(--text-2); font-size: 0.95rem; margin-top: 0.25rem; max-width: 26ch; }
+
+/* ---------- Recent workflows ---------- */
+.pebbles { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 1.1rem; }
+.pebble {
+  display: grid;
+  gap: 0.6rem;
+  align-content: space-between;
+  min-height: 200px;
+  padding: 1.6rem 1.6rem 1.35rem;
+  border-radius: 28px;
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  color: inherit;
+  text-decoration: none;
+  transition-property: translate, box-shadow;
+  transition-duration: 0.25s;
+  transition-timing-function: var(--ease);
+}
+.pebble:nth-child(2) { border-radius: 36px 24px 36px 24px; background: var(--surface-2); }
+.pebble:nth-child(3) { border-radius: 24px 36px 24px 36px; background: color-mix(in srgb, var(--c-source) 6%, var(--surface)); }
+.pebble:hover { translate: 0 -4px; box-shadow: var(--shadow-3); }
+.pebble .flow-preview { margin-bottom: 0.9rem; }
+.pebble h3 { font-size: 1.3rem; }
+.pebble p { color: var(--text-2); font-size: 0.95rem; margin-top: 0.3rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pebble__meta { display: flex; justify-content: space-between; color: var(--text-3); font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.pebble__meta span { display: inline-flex; align-items: center; gap: 0.35rem; }
+
+
+@media (max-width: 1100px) {
+  .pebbles { grid-template-columns: 1fr 1fr; }
+  .pebbles .pebble:first-child { grid-column: 1 / -1; }
+}
+@media (max-width: 900px) {
+  .stops { grid-template-columns: 1fr 1fr; }
+  .stops__path { display: none; }
+  .stop, .stop:nth-child(even) { padding-top: 3.5rem; }
+  .stop:nth-child(even) .stop__no { top: 0; }
+}
+@media (max-width: 720px) {
+  .dash { gap: 3rem; }
+  .counts { gap: 1rem 2.5rem; margin-top: -1rem; }
+  .count b { font-size: 3rem; }
+  .pebbles { grid-template-columns: 1fr; }
+  .head { flex-wrap: wrap; }
+}
