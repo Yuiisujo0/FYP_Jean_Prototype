@@ -41,7 +41,7 @@ export function DashboardPage() {
         </Link>
         <Link to="/settings?tab=model" className="count">
           <span className={`count__on is-${ollama.status}`}><i aria-hidden />{modelValue}</span>
-          <small>{ollama.config.model} via Ollama</small>
+          <small>{ollama.modelName}</small>
         </Link>
       </section>
 

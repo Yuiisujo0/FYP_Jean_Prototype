@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
+import { API_URL } from '../../lib/api';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Segmented } from '../../components/ui/Segmented';
 import { useWorkspace } from '../../state/WorkspaceContext';
@@ -88,7 +89,7 @@ function AppearanceSection() {
 
 function ModelSection() {
   const { ollama } = useWorkspace();
-  const { config, setConfig, status, models, error, check } = ollama;
+  const { status, modelName, error, check } = ollama;
   const badge = {
     online: <Badge tone="ok" dot>Connected</Badge>,
     checking: <Badge dot>Checking…</Badge>,
@@ -98,28 +99,21 @@ function ModelSection() {
 
   return (
     <>
-      <Row title="Connection" hint="jwork talks to a local Ollama server. Nothing is sent to a cloud service.">
-        {badge}
-      </Row>
-      <Row title="Server address" hint="The default Ollama address is http://localhost:11434.">
+      <Row title="Connection" hint="The AI service that drafts and revises workflows.">
         <div className="inline-field">
-          <input className="input" value={config.url} onChange={e => setConfig({ url: e.target.value })} aria-label="Ollama server address" spellCheck={false} />
+          {badge}
           <Button loading={status === 'checking'} onClick={check}>Test</Button>
         </div>
       </Row>
-      <Row title="Model" hint={models.length ? 'Models found on your server.' : 'Connect to list the models installed locally.'}>
-        {models.length ? (
-          <select className="select" value={config.model} onChange={e => setConfig({ model: e.target.value })} aria-label="Model">
-            {!models.includes(config.model) && <option value={config.model}>{config.model}</option>}
-            {models.map(m => <option key={m}>{m}</option>)}
-          </select>
-        ) : (
-          <input className="input" value={config.model} onChange={e => setConfig({ model: e.target.value })} aria-label="Model name" spellCheck={false} />
-        )}
+      <Row title="Service address" hint="Set when the site is built (VITE_API_URL). Locally it is the jwork backend.">
+        <code>{API_URL}</code>
+      </Row>
+      <Row title="Model" hint="Reported by the service.">
+        <span>{status === 'online' ? modelName : 'Unknown until connected'}</span>
       </Row>
       {status === 'offline' && error && <p className="settings__note settings__note--warn">{error}</p>}
       <p className="settings__note">
-        This only checks that the browser can reach Ollama. Workflow generation goes through the jwork backend, which talks to Ollama itself, using the model set in the backend's configuration.
+        Your data files and rows stay in this browser. To draft and revise a workflow, the service receives your request text, your file and column names, and short run summaries such as row counts. It never receives row values.
       </p>
     </>
   );
