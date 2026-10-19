@@ -31,17 +31,45 @@
 .river > p { color: var(--text-3); margin-top: 0.3rem; }
 .stops { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; margin-top: 1.9rem; }
 .stops__path { position: absolute; left: 0; top: 0; width: 100%; height: 72px; overflow: visible; pointer-events: none; color: var(--accent); }
-.stop { position: relative; padding-top: 3.5rem; }
+.stops__dots { opacity: 0.35; clip-path: inset(0 100% 0 0); transition: clip-path 1.4s var(--ease); }
+.river.is-seen .stops__dots { clip-path: inset(-10px 0 -10px 0); }
+.stops__done { opacity: 0; transition: stroke-dashoffset 0.9s var(--ease), opacity 0.4s; }
+.river.is-seen .stops__done { opacity: 0.85; }
+
+.stop {
+  position: relative; padding: 3.5rem 0 0; border: 0; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  opacity: 0; translate: 0 14px;
+  transition: opacity 0.5s var(--ease), translate 0.5s var(--ease);
+}
+.river.is-seen .stop { opacity: 0.62; translate: 0 0; }
+.river.is-seen .stop.is-past { opacity: 0.8; }
+.river.is-seen .stop.is-active { opacity: 1; }
 .stop:nth-child(even) { padding-top: 5.25rem; }
+.stop:focus-visible { outline: none; }
+.stop:focus-visible .stop__no { outline: 2px solid var(--accent); outline-offset: 3px; }
 .stop__no {
   position: absolute; top: 0; left: 0; z-index: 1;
   display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
   background: var(--surface); box-shadow: var(--shadow-2); color: var(--accent-text);
   font: 700 1.1rem var(--font-display);
+  transition: background 0.3s, color 0.3s, scale 0.35s var(--ease);
 }
 .stop:nth-child(even) .stop__no { top: 1.75rem; }
-.stop h3 { font-size: 1.3rem; }
+.stop.is-past .stop__no { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.stop.is-active .stop__no { background: var(--accent); color: var(--on-accent); scale: 1.14; animation: stop-ring 2.6s ease-out infinite; }
+.stop h3 { font-size: 1.3rem; transition: color 0.3s; }
+.stop.is-active h3 { color: var(--accent-text); }
 .stop p { color: var(--text-2); font-size: 0.95rem; margin-top: 0.25rem; max-width: 26ch; }
+.stop:hover { opacity: 1; }
+@keyframes stop-ring {
+  0% { box-shadow: var(--shadow-2), 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  70%, 100% { box-shadow: var(--shadow-2), 0 0 0 16px transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stops__dots { clip-path: none; transition: none; }
+  .stop { opacity: 0.85; translate: 0 0; transition: none; }
+  .stop.is-active .stop__no { animation: none; }
+}
 
 /* ---------- Recent workflows ---------- */
 .pebbles { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 1.1rem; }
