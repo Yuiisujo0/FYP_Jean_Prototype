@@ -12,6 +12,8 @@ export const KEYS = {
   ollama: 'jwork.ollama',
   profile: 'jwork.profile',
   sidebar: 'jwork.sidebar',
+  sidePanel: 'jwork.sidePanel',
+  history: 'jwork.history.v1',
   lastBackup: 'jwork.lastBackup',
 } as const;
 

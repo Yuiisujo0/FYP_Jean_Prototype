@@ -74,6 +74,22 @@
 .gen__list button:hover { border-color: var(--accent); color: var(--text); transform: translateX(3px); }
 .gen__list button svg { flex-shrink: 0; color: var(--accent-text); }
 
+/* ---------- Small talk reply and request history ---------- */
+.gen__chat { display: grid; gap: 0.6rem; animation: rise 0.25s ease-out; }
+.gen__you { justify-self: end; max-width: 80%; padding: 0.55rem 0.95rem; border-radius: var(--r-md) var(--r-md) 4px var(--r-md); background: var(--accent); color: var(--on-accent, #fff); }
+.gen__reply { display: flex; gap: 0.7rem; padding: 0.95rem 1.1rem; border: 1px solid var(--border); border-radius: var(--r-md) var(--r-md) var(--r-md) 4px; background: var(--surface); color: var(--text-2); }
+.gen__reply > svg { flex-shrink: 0; margin-top: 0.15rem; color: var(--accent-text); }
+.gen__reply > div { display: grid; gap: 0.7rem; min-width: 0; flex: 1; }
+.gen__history-head { display: flex; align-items: center; justify-content: space-between; }
+.gen__history h2 { display: flex; align-items: center; gap: 0.4rem; }
+.gen__clear { padding: 0.15rem 0.4rem; border: 0; background: none; color: var(--text-3); font-size: 0.8125rem; }
+.gen__clear:hover { color: var(--text); text-decoration: underline; }
+.gen__hrow { display: flex; align-items: stretch; gap: 0.5rem; }
+.gen__hrow > button { flex: 1; min-width: 0; }
+.gen__hrow small { flex-shrink: 0; color: var(--text-3); }
+.gen__open { display: inline-flex; align-items: center; padding: 0 0.9rem; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--accent-text); font-size: 0.8125rem; font-weight: 600; white-space: nowrap; text-decoration: none; }
+.gen__open:hover { border-color: var(--accent); }
+
 .gen__foot { display: flex; align-items: center; gap: 0.5rem; color: var(--text-3); font-size: 0.8125rem; }
 .gen__foot svg { color: var(--ok); flex-shrink: 0; }
 
