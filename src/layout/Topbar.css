@@ -1,0 +1,76 @@
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: var(--topbar-h);
+  padding: 0 var(--pad);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(12px);
+}
+.topbar__menu { display: none; }
+
+.crumbs { display: flex; align-items: center; min-width: 0; font: 700 1.05rem var(--font-display); letter-spacing: -0.02em; }
+.crumbs__item { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-3); white-space: nowrap; }
+.crumbs__item:last-child { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+.crumbs__item:not(:first-child) { margin-left: 0.4rem; }
+
+.topbar__actions { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
+
+.topbar__search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 290px;
+  height: 44px;
+  padding: 0 0.7rem 0 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--text-3);
+  font-size: 0.9rem;
+  text-align: left;
+  transition-property: box-shadow, scale;
+  transition-duration: 0.18s;
+}
+.topbar__search:hover { box-shadow: var(--shadow-2); }
+.topbar__search:active { scale: 0.98; }
+.topbar__search span { flex: 1; }
+
+.topbar__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  height: 40px;
+  padding: 0 1rem;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 0.875rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.topbar__status i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.topbar__status.is-online { background: var(--ok-soft); color: var(--ok); }
+.topbar__status.is-checking,
+.topbar__status.is-unknown { background: var(--sunken); color: var(--text-3); }
+
+.theme-moon { display: none; }
+:root[data-theme='dark'] .theme-sun { display: none; }
+:root[data-theme='dark'] .theme-moon { display: block; }
+
+@media (max-width: 768px) {
+  .topbar__menu { display: grid; }
+}
+@media (max-width: 720px) {
+  .topbar__search { width: 44px; padding: 0; justify-content: center; }
+  .topbar__search span,
+  .topbar__search kbd { display: none; }
+  .topbar__status span { display: none; }
+  .topbar__status { padding: 0 0.7rem; }
+  .crumbs__item:not(:last-child) { display: none; }
+  .crumbs__item:not(:first-child) { margin-left: 0; }
+}

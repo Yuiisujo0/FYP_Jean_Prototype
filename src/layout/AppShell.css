@@ -1,0 +1,16 @@
+.shell { min-height: 100vh; }
+.shell__main { margin-left: var(--sidebar-w); transition: margin-left 0.2s ease; min-height: 100vh; display: flex; flex-direction: column; }
+.shell__content { flex: 1; min-width: 0; }
+.shell__scrim { display: none; }
+
+@media (max-width: 768px) {
+  .shell__main { margin-left: 0; }
+  .shell__scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    border: 0;
+    background: rgb(8 12 18 / 0.5);
+  }
+}

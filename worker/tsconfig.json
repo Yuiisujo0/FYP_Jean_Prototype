@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["src", "../src/pipeline", "../src/lib/validate.ts", "../src/lib/flowGraph.ts", "../src/lib/engine.ts", "../src/lib/id.ts", "../src/data/nodeKinds.ts", "../src/types.ts"]
+}
