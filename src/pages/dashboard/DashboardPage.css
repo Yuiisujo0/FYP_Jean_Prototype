@@ -33,8 +33,9 @@
 .stops__path { position: absolute; left: 0; top: 0; width: 100%; height: 72px; overflow: visible; pointer-events: none; color: var(--accent); }
 .stops__dots { opacity: 0.35; clip-path: inset(0 100% 0 0); transition: clip-path 1.4s var(--ease); }
 .river.is-seen .stops__dots { clip-path: inset(-10px 0 -10px 0); }
-.stops__done { opacity: 0; transition: stroke-dashoffset 0.9s var(--ease), opacity 0.4s; }
+.stops__done { opacity: 0; transition: opacity 0.4s; }
 .river.is-seen .stops__done { opacity: 0.85; }
+.stops__dot { position: absolute; z-index: 2; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 18px 4px color-mix(in srgb, var(--accent) 45%, transparent); opacity: 0; pointer-events: none; }
 
 .stop {
   position: relative; padding: 3.5rem 0 0; border: 0; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer;
@@ -52,7 +53,7 @@
   display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
   background: var(--surface); box-shadow: var(--shadow-2); color: var(--accent-text);
   font: 700 1.1rem var(--font-display);
-  transition: background 0.3s, color 0.3s, scale 0.35s var(--ease);
+  transition: background 0.45s, color 0.45s, scale 0.5s var(--ease);
 }
 .stop:nth-child(even) .stop__no { top: 1.75rem; }
 .stop.is-past .stop__no { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
@@ -69,6 +70,7 @@
   .stops__dots { clip-path: none; transition: none; }
   .stop { opacity: 0.85; translate: 0 0; transition: none; }
   .stop.is-active .stop__no { animation: none; }
+  .stops__dot { display: none; }
 }
 
 /* ---------- Recent workflows ---------- */
@@ -104,7 +106,7 @@
 }
 @media (max-width: 900px) {
   .stops { grid-template-columns: 1fr 1fr; }
-  .stops__path { display: none; }
+  .stops__path, .stops__dot { display: none; }
   .stop, .stop:nth-child(even) { padding-top: 3.5rem; }
   .stop:nth-child(even) .stop__no { top: 0; }
 }
