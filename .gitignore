@@ -1,0 +1,33 @@
+node_modules
+dist
+*.local
+
+# backend
+backend/.venv/
+__pycache__/
+.pytest_cache/
+
+backend/*.db
+
+tests/shots/
+
+backend/eval/runs/eval.db
+
+backend/.env
+
+worker/.wrangler/
+worker/node_modules/
+
+# local-only: AI tooling, notes, drafts and design scratch (kept on disk, not published)
+.claude/
+.impeccable/
+docs/
+design-backups/
+design-previews/
+FYP_context_summary.md
+FYPcontext.md
+PRODUCT.md
+answer_1.md
+question_1.md
+backend/.venv/
+backend/eval/
