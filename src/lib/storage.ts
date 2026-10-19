@@ -9,7 +9,7 @@ export const KEYS = {
   knowledge: 'jwork.knowledge.v1',
   theme: 'jwork.theme',
   density: 'jwork.density',
-  ollama: 'jwork.ollama',
+  provider: 'jwork.provider',
   profile: 'jwork.profile',
   sidebar: 'jwork.sidebar',
   sidePanel: 'jwork.sidePanel',

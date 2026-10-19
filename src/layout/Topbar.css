@@ -52,7 +52,9 @@
   font-size: 0.875rem;
   font-weight: 650;
   white-space: nowrap;
+  text-decoration: none;
 }
+.topbar__status:hover { filter: brightness(0.97); }
 .topbar__status i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .topbar__status.is-online { background: var(--ok-soft); color: var(--ok); }
 .topbar__status.is-checking,

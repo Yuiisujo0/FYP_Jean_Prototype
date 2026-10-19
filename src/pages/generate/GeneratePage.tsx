@@ -8,6 +8,7 @@ import { generateFlow } from '../../lib/api';
 import { chainEdges, defaultPosition, orderSteps } from '../../lib/flowGraph';
 import { addHistory, clearHistory, loadHistory, type HistoryItem } from '../../lib/history';
 import { datasetBriefs } from '../../lib/library';
+import { PROVIDER_LABEL } from '../../lib/providerConfig';
 import { smallTalk, type SmallTalk } from '../../lib/smalltalk';
 import type { AgentRound, Flow } from '../../types';
 import { useWorkspace } from '../../state/WorkspaceContext';
@@ -22,7 +23,7 @@ const EXAMPLES = [
 ];
 
 export function GeneratePage() {
-  const { flows, addFlow, notify } = useWorkspace();
+  const { flows, addFlow, notify, ollama } = useWorkspace();
   const navigate = useNavigate();
   const location = useLocation();
   const initial = (location.state as { prompt?: string } | null)?.prompt ?? '';
@@ -121,6 +122,10 @@ export function GeneratePage() {
           </Button>
         </div>
       </div>
+
+      <p className="gen__model">
+        Using <b>{ollama.modelName}</b> · {PROVIDER_LABEL[ollama.provider.kind]}. <Link to="/settings?tab=model">Change model</Link>
+      </p>
 
       {chat && !busy && (
         <div className="gen__chat" aria-live="polite">
