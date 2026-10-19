@@ -92,7 +92,7 @@ export function ProfilePage() {
               <div><dt>Knowledge entries</dt><dd>{knowledge.length}</dd></div>
               <div><dt>Imported</dt><dd>{importedCount}</dd></div>
             </dl>
-            <p className="profile__model">Local model: <b>{ollama.config.model}</b> ({ollama.status === 'online' ? 'connected' : 'not connected'})</p>
+            <p className="profile__model">AI model: <b>{ollama.modelName}</b> ({ollama.status === 'online' ? 'connected' : 'not connected'})</p>
           </section>
 
           <section className="card profile__panel">

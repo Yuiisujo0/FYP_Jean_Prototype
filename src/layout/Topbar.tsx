@@ -46,7 +46,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
           <span>Search or jump to…</span>
           <kbd>{shortcutLabel}</kbd>
         </button>
-        <span className={`topbar__status is-${ollama.status}`} title="Local model connection">
+        <span className={`topbar__status is-${ollama.status}`} title="AI service connection">
           <i aria-hidden />
           <span>{statusLabel}</span>
         </span>

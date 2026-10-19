@@ -90,11 +90,11 @@ export function Sidebar({ open, phone, collapsed, onClose, onToggle }: SidebarPr
       </nav>
 
       <div className="sidebar__footer">
-        <NavLink to="/settings?tab=model" className="model-card" onClick={onClose} title={`Local model: ${ollama.config.model} · ${modelLabel}`}>
+        <NavLink to="/settings?tab=model" className="model-card" onClick={onClose} title={`AI model: ${ollama.modelName} · ${modelLabel}`}>
           <span className={`model-card__dot is-${ollama.status}`} aria-hidden />
           <span className="model-card__text">
-            <b>Local model</b>
-            <small>{ollama.config.model} · {modelLabel}</small>
+            <b>AI model</b>
+            <small>{ollama.modelName} · {modelLabel}</small>
           </span>
         </NavLink>
         <NavLink to="/profile" className={({ isActive }) => `sidebar__user ${isActive ? 'is-active' : ''}`} onClick={onClose} title="Your profile">

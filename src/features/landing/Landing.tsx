@@ -281,7 +281,7 @@ function LandingView({ reveal, onClose }: { reveal: boolean; onClose: () => void
           <div className="landing__brand"><LogoMark size={34} /><span>jwork</span></div>
           <div className="landing__bar-right">
             <span className="landing__hello hand">{greeting()}{name ? `, ${name}` : ''}</span>
-            <span className={`landing__status is-${ollama.status}`}><i aria-hidden />{ollama.config.model} · {status}</span>
+            <span className={`landing__status is-${ollama.status}`}><i aria-hidden />{ollama.modelName} · {status}</span>
           </div>
         </header>
 

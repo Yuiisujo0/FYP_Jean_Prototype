@@ -52,7 +52,10 @@ export async function callModel(ai: AiLike, model: string, messages: unknown, sc
       messages,
       response_format: { type: 'json_schema', json_schema: schema },
       temperature,
-      max_tokens: 400,
+      // gpt-oss thinks before it answers and the thinking counts against max_tokens: at 400 it often spent all of it
+      // and returned nothing (finish_reason "length"). Think briefly and leave room for the answer.
+      max_tokens: 1200,
+      ...(/gpt-oss/i.test(model) ? { reasoning: { effort: 'low' } } : {}),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
