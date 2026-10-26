@@ -243,9 +243,17 @@ def normalize_config(type_: str, raw_config: dict[str, str]) -> dict[str, str]:
 
 
 def build_flow(draft: DraftWorkflow, prompt: str) -> Flow:
-    """Turn the model's bare steps into a full Flow: names, descriptions, ids, edges and positions are ours."""
+    """Turn the model's bare steps into a full Flow: names, descriptions, ids, edges and positions are ours.
+
+    A workflow with no OUTPUT step gets one at the end. Models often stop at the last real action ("... then save them to
+    the database"); asking them to repair that costs a whole extra call, and they tend to do it by REPLACING the last step
+    with OUTPUT, which silently drops what the user asked for.
+    """
+    raws = list(draft.steps)
+    if raws and all(r.get("type") != "OUTPUT" for r in raws):
+        raws.append({"type": "OUTPUT", "format": "table"})
     steps = []
-    for i, raw in enumerate(draft.steps):
+    for i, raw in enumerate(raws):
         type_ = raw.get("type", "")
         config = normalize_config(type_, {k: v for k, v in raw.items() if k != "type"})
         steps.append(Step(

@@ -125,3 +125,14 @@ def test_generation_retries_when_the_provider_rejects_its_own_output(monkeypatch
     result = asyncio.run(llm.generate_workflow("read x", "m", None, "none"))
     assert calls["n"] == 2 and result.valid
     assert result.attempts[0].errors == 1 and "rejected by provider" in result.attempts[0].note
+
+
+def test_a_workflow_without_output_gets_one_and_keeps_its_last_step():
+    draft = DraftWorkflow(steps=[
+        {"type": "READ_CSV", "file": "marks.csv", "delimiter": ","},
+        {"type": "FILTER", "condition": "score < 50"},
+        {"type": "DATABASE", "table": "failed_students"},
+    ])
+    flow = build_flow(draft, "Flag failing students and save them")
+    assert [n.type for n in flow.nodes] == ["READ_CSV", "FILTER", "DATABASE", "OUTPUT"]
+    assert error_count(validate_workflow(flow.nodes, flow.edges)) == 0

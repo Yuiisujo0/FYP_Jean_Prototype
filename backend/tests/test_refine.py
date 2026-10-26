@@ -60,12 +60,12 @@ def test_the_same_workflow_back_is_reported_as_unchanged_even_if_written_differe
 
 
 def test_an_invalid_answer_is_repaired_like_in_generation(monkeypatch):
-    broken = [STEPS[0], STEPS[1]]   # no OUTPUT at the end
+    broken = [STEPS[0], {"type": "FILTER", "config": {"condition": ""}}, STEPS[2]]   # a required value left blank
     calls = fake_model(monkeypatch, answer(broken), answer(STEPS))
-    result = asyncio.run(refine_workflow(STEPS, "drop the output", "m"))
+    result = asyncio.run(refine_workflow(STEPS, "blank the filter", "m"))
     assert len(result.attempts) == 2 and result.attempts[0].errors == 1 and result.valid
     assert calls[1]["temperature"] == 0.5
-    assert "End the workflow with an Output step" in calls[1]["messages"][-1]["content"]
+    assert "needs a value for “condition”" in calls[1]["messages"][-1]["content"]
 
 
 def test_unusable_answers_end_in_an_error_that_knows_what_was_spent(monkeypatch):

@@ -76,12 +76,12 @@ test('adding or removing a step counts as a change', async () => {
 });
 
 test('an invalid answer is repaired, hotter each time, like in generation', async () => {
-  const ai = fakeAi(said([STEPS[0], STEPS[1]]), said(STEPS));
-  const r = await refineWorkflow(STEPS, 'drop the output', options(ai));
+  const ai = fakeAi(said([STEPS[0], { ...STEPS[1], config: { condition: '' } }, STEPS[2]]), said(STEPS));
+  const r = await refineWorkflow(STEPS, 'blank the filter', options(ai));
   assert.equal(r.attempts.length, 2);
   assert.equal(r.valid, true);
   assert.equal(ai.calls[1].inputs.temperature, 0.5);
-  assert.match(ai.calls[1].inputs.messages.at(-1).content, /End the workflow with an Output step/);
+  assert.match(ai.calls[1].inputs.messages.at(-1).content, /needs a value for “condition”/);
 });
 
 test('when a model is unavailable the next one is used', async () => {

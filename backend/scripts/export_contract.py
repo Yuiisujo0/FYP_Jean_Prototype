@@ -100,6 +100,9 @@ drafts = [
     ("filter long condition", [{"type": "READ_CSV", "file": "x", "delimiter": ";"},
                                {"type": "FILTER", "condition": "course == CS101 and attendance_pct < 70 and score >= 50 or name contains Lee"},
                                {"type": "OUTPUT", "format": "table"}]),
+    ("Read marks, flag everyone below 50, then save them to the database", [
+        {"type": "READ_CSV", "file": "student_marks", "delimiter": ","}, {"type": "FILTER", "condition": "score < 50"},
+        {"type": "DATABASE", "table": "failed_students"}]),
 ]
 build_cases = []
 for prompt, steps in drafts:

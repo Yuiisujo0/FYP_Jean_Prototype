@@ -53,7 +53,7 @@ test('the contract carries the schema, catalogue, example and library', () => {
 /* ---------------- the generation loop, with a fake AI ---------------- */
 
 const GOOD = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'marks', delimiter: ',' }, { type: 'FILTER', condition: 'score < 50' }, { type: 'OUTPUT', format: 'table' }] });
-const NO_OUTPUT = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'marks', delimiter: ',' }, { type: 'FILTER', condition: 'score < 50' }] });
+const BLANK_FILTER = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'marks', delimiter: ',' }, { type: 'FILTER', condition: '' }, { type: 'OUTPUT', format: 'table' }] });
 const reply = (content: string, neurons = 5) => ({ response: content, usage: { prompt_tokens: 700, completion_tokens: 50, neurons } });
 
 /** A fake AI that answers from a script: each item is a result, or an Error to throw. */
@@ -84,14 +84,22 @@ test('a good first answer is used as is', async () => {
 });
 
 test('validation errors are sent back and the model repairs, hotter each time', async () => {
-  const ai = fakeAi([reply(NO_OUTPUT), reply(GOOD)]);
+  const ai = fakeAi([reply(BLANK_FILTER), reply(GOOD)]);
   const r = await generateWorkflow('x y z', { ai, models: MODELS });
   assert.equal(r.attempts.length, 2);
   assert.equal(r.attempts[0].errors, 1);
   assert.equal(r.valid, true);
   assert.equal(ai.calls[1].inputs.temperature, 0.5);
   const last = ai.calls[1].inputs.messages.at(-1);
-  assert.match(last.content, /End the workflow with an Output step/);
+  assert.match(last.content, /needs a value for “condition”/);
+});
+
+test('a workflow without an OUTPUT step gets one, with no repair call, and keeps its last step', async () => {
+  const ai = fakeAi([reply(JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'marks', delimiter: ',' }, { type: 'DATABASE', table: 'failed' }] }))]);
+  const r = await generateWorkflow('save the marks', { ai, models: MODELS });
+  assert.equal(r.attempts.length, 1);
+  assert.equal(r.valid, true);
+  assert.deepEqual(r.flow.nodes.map(n => n.type), ['READ_CSV', 'DATABASE', 'OUTPUT']);
 });
 
 test('output the provider rejects, or that is not the expected JSON, is retried', async () => {

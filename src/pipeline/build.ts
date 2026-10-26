@@ -42,7 +42,10 @@ export function normalizeConfig(type: string, raw: Record<string, string>): Reco
 }
 
 export function buildFlow(draft: { steps: Record<string, string>[] }, prompt: string): Flow {
-  const nodes: Step[] = draft.steps.map((raw, i) => {
+  // No OUTPUT step: one is added at the end, as in build_flow (a repair call would cost time and tends to replace the
+  // user's last step, such as a save, with OUTPUT).
+  const raws = draft.steps.length && draft.steps.every(r => r.type !== 'OUTPUT') ? [...draft.steps, { type: 'OUTPUT', format: 'table' }] : draft.steps;
+  const nodes: Step[] = raws.map((raw, i) => {
     const type = raw.type ?? '';
     const kind = KIND.get(type);
     const config = normalizeConfig(type, Object.fromEntries(Object.entries(raw).filter(([k]) => k !== 'type')));
