@@ -16,6 +16,7 @@
 import type { AgentRound, Step } from '../types';
 import { observeRun, REVISE_ON, type TestOutcome } from './observe.ts';
 import { describeChanges, reconcile } from './refine.ts';
+import type { DatasetOutline } from './grounding.ts';
 import { repairByRules } from './repair.ts';
 
 export interface RevisionReply {
@@ -33,6 +34,8 @@ export interface AgentDeps {
   onRound?: (round: AgentRound) => void;
   /** The user's own request. With it the run is also checked against what the request says (src/lib/grounding.ts). */
   request?: string;
+  /** The uploaded datasets (names and columns only), so the agent can tell when the workflow reads the wrong one. */
+  datasets?: DatasetOutline[];
   /** Use the rule-based repairs before asking the model. On unless false (the evaluation turns it off to measure its effect). */
   rules?: boolean;
 }
@@ -61,7 +64,7 @@ export async function checkByRunning(initial: Step[], deps: AgentDeps, maxRevisi
       record({ signals: [], sent: '', outcome: 'untestable', detail: `Not tested here: ${outcome.blocked}` });
       return { steps, rounds, status: 'untestable' };
     }
-    const obs = observeRun(steps, outcome, deps.request);
+    const obs = observeRun(steps, outcome, deps.request, deps.datasets);
     const all = [...new Set(obs.signals.map(s => s.kind))];
     const signals = all.filter(k => REVISE_ON.has(k));
     if (!signals.length) {
@@ -113,6 +116,7 @@ const SIGNAL_TEXT: Record<string, string> = {
   invented_value: 'a filter uses a value the request does not mention.',
   no_sort: 'the request asks for a ranking but nothing sorts the rows.',
   mixed_logic: 'and / or are mixed without brackets.',
+  wrong_dataset: 'the request does not match the data the workflow reads.',
   run_error: 'the run stopped with an error.',
   no_rows: 'the result was empty.',
   skipped_step: 'a step did not run.',

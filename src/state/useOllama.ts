@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ModelStatus } from '../types';
 import { API_URL } from '../lib/api';
 import { cleanBaseUrl } from '../pipeline/openaiAi';
+import { buildMessages, reviseMessages } from '../pipeline/prompt';
 import { ollamaApiBase, ollamaHelp, providerProblem, readProvider, writeProvider, type ProviderConfig } from '../lib/provider';
 
 /**
@@ -16,6 +17,7 @@ export function useOllama() {
   const latest = useRef(provider);
   latest.current = provider;
   const run = useRef(0);   // a later check replaces an earlier one that is still in flight
+  const warmed = useRef('');   // the Ollama address and model already asked to load during this visit
 
   const setProvider = useCallback((patch: Partial<ProviderConfig>) => {
     const next = { ...latest.current, ...patch };
@@ -51,6 +53,7 @@ export function useOllama() {
         const wanted = current.ollamaModel.trim();
         const have = installed.some(n => n === wanted || n === `${wanted}:latest`);
         finish(have, installed, have ? '' : `Ollama is running but does not have “${wanted}”. Run: ollama pull ${wanted}${installed.length ? ` — or pick one you have: ${installed.join(', ')}.` : ''}`);
+        if (have) warmUp(current.ollamaUrl, wanted, warmed);
       } else {
         const problem = providerProblem(current);
         if (problem) return finish(false, [], problem);
@@ -81,4 +84,26 @@ export function useOllama() {
   /** A short name for the model in use, e.g. "gpt-oss-20b", or a neutral label when none is known. */
   const modelName = (provider.kind === 'ollama' ? provider.ollamaModel : provider.kind === 'custom' ? provider.customModel : models[0])?.split('/').pop() || 'AI service';
   return { provider, setProvider, status, models, modelName, error, check };
+}
+
+/**
+ * Gets Ollama ready while the user is still typing: loads the model (a request with no prompt only loads it), then sends
+ * the opening of the generate and the revise prompt once, asking for a single token. Ollama keeps recent prompts and
+ * reuses the part a new prompt shares with one of them, so the user's first request and the agent's first revision no
+ * longer process the whole prompt. Measured on a 4 GB GPU with qwen2.5:7b: without this, the first generate took 15 s of
+ * prompt processing and the first revision 17.5 s; the second ones 4.8 s and 2.5 s. Runs once per address and model per
+ * visit; failures are ignored, because the real request reports any problem. The prompts are the real ones, unchanged.
+ */
+function warmUp(url: string, model: string, warmed: { current: string }) {
+  const key = `${url}|${model}`;
+  if (warmed.current === key) return;
+  warmed.current = key;
+  const base = ollamaApiBase(url).replace(/\/v1$/, '');
+  const post = (path: string, body: object) => fetch(`${base}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model, keep_alive: '15m', ...body }) });
+  const prime = (messages: { role: string; content: string }[]) => post('/api/chat', { messages, stream: false, options: { num_predict: 1, temperature: 0 } });
+  void (async () => {
+    await post('/api/generate', {});
+    await prime(buildMessages('Show the data', []));
+    await prime(reviseMessages('Show the data', [], 'The result has 0 rows.'));
+  })().catch(() => {});
 }

@@ -13,6 +13,7 @@ const ctx: RunContext = {
   saveTable: async () => {},
   fetchJson: async () => { throw new Error('no network'); },
 };
+const outlines = names.map(n => ({ name: n, columns: data.datasets[n].columns }));
 const all = process.argv.includes('--all');
 let n = 0, flagged = 0;
 for (const t of data.tasks) {
@@ -20,7 +21,7 @@ for (const t of data.tasks) {
   if (!all && (t.split === 'holdout2' || t.split === 'holdout3')) continue;
   const steps: Step[] = t.steps.map((s, i) => ({ id: `${t.id}-${i}`, type: s.type, name: s.type, description: '', config: s.config }));
   const r = await runFlow(steps, ctx, () => {}, { dryRun: true });
-  const f = groundingFindings(t.request, steps, r.input);
+  const f = groundingFindings(t.request, steps, r.input, outlines, r.rows.length);
   n++;
   if (f.length) { flagged++; console.log(`${t.id.padEnd(4)} ${t.split.padEnd(8)} ${t.request}\n     ${f.map(x => `[${x.kind}] ${x.text}`).join('\n     ')}`); }
 }

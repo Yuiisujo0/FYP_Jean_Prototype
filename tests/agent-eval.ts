@@ -202,7 +202,7 @@ for (const task of tasks) {
     const r = await checkByRunning(repairSteps, {
       test: dryRun,
       revise,
-      request: task.request,
+      request: task.request, datasets,
       rules: false,
     });
     agentSteps = r.steps;
@@ -216,7 +216,7 @@ for (const task of tasks) {
   const t3 = Date.now();
   if (repairSteps) {
     stage = 'revise-tools';
-    const tr = await checkByRunning(repairSteps, { test: dryRun, revise, request: task.request });
+    const tr = await checkByRunning(repairSteps, { test: dryRun, revise, request: task.request, datasets });
     toolsSteps = tr.steps;
     toolRounds = tr.rounds;
   }
@@ -239,7 +239,7 @@ for (const task of tasks) {
     consensusSteps = candidates[p.index];
     pick = { index: p.index, reason: p.reason, verdicts: p.judged.map(j => j.verdict), votes: p.judged.map(j => j.votes) };
     stage = 'revise';
-    const cr = await checkByRunning(consensusSteps, { test: dryRun, revise, request: task.request });
+    const cr = await checkByRunning(consensusSteps, { test: dryRun, revise, request: task.request, datasets });
     consensusAgentSteps = cr.steps;
     consensusMs = Date.now() - t2;
   }

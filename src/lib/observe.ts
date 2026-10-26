@@ -10,7 +10,7 @@
 import type { RunResult, Step } from '../types';
 import { conditionColumns } from './engine.ts';
 import { explainStep } from './explain.ts';
-import { groundingFindings, type Finding, type GroundingKind } from './grounding.ts';
+import { groundingFindings, type DatasetOutline, type Finding, type GroundingKind } from './grounding.ts';
 
 export type SignalKind = 'run_error' | 'no_rows' | 'skipped_step' | 'undecided_rows' | 'filter_kept_all' | GroundingKind;
 
@@ -19,7 +19,7 @@ export type SignalKind = 'run_error' | 'no_rows' | 'skipped_step' | 'undecided_r
  * non-numeric cells are a fact about the data, not a mistake in the plan. (Decided after tests/signal-analysis.ts
  * showed it fired on more right workflows than wrong ones, 18 to 10, over all saved runs including the holdout.)
  */
-export const REVISE_ON: ReadonlySet<SignalKind> = new Set<SignalKind>(['run_error', 'no_rows', 'skipped_step', 'filter_kept_all', 'unused_value', 'wrong_column', 'invented_value', 'no_sort', 'mixed_logic']);
+export const REVISE_ON: ReadonlySet<SignalKind> = new Set<SignalKind>(['run_error', 'no_rows', 'skipped_step', 'filter_kept_all', 'unused_value', 'wrong_column', 'invented_value', 'no_sort', 'mixed_logic', 'wrong_dataset']);
 
 export interface Signal {
   kind: SignalKind;
@@ -53,9 +53,9 @@ function columnProfile(rows: Record<string, string>[], column: string): string {
 
 /**
  * `request` (the user's own words) switches on the grounding checks: whether the workflow uses the values the request names,
- * and nothing else. Without it only the run itself is observed.
+ * and reads the data the request is about. `datasets` (names and columns only) lets a finding name the dataset that fits. Without it only the run itself is observed.
  */
-export function observeRun(steps: Step[], outcome: TestOutcome, request?: string): Observation {
+export function observeRun(steps: Step[], outcome: TestOutcome, request?: string, datasets?: DatasetOutline[]): Observation {
   const signals: Signal[] = [];
   const lines: string[] = [];
 
@@ -80,7 +80,7 @@ export function observeRun(steps: Step[], outcome: TestOutcome, request?: string
   }
   if (r.register && r.rows.length === 0) signals.push({ kind: 'no_rows' });
 
-  const findings = request ? groundingFindings(request, steps, r.input) : [];
+  const findings = request ? groundingFindings(request, steps, r.input, datasets, r.rows.length) : [];
   if (request) {
     for (const f of findings) {
       signals.push({ kind: f.kind, stepId: f.stepId });

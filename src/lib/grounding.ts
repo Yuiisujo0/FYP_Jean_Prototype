@@ -7,7 +7,9 @@
  *   wrong_column    a value the request names is compared with the wrong column ("category == Delta Trading");
  *   invented_value  a filter compares with a value the request never mentions ("city == London");
  *   no_sort         the request asks for the highest, lowest, best... but nothing sorts the rows;
- *   mixed_logic     and / or are mixed without brackets (and is applied first, which is often not what was meant).
+ *   mixed_logic     and / or are mixed without brackets (and is applied first, which is often not what was meant);
+ *   wrong_dataset   no word of the request occurs in the dataset the workflow reads (its name, columns or values): the
+ *                   request is probably about other data, or about data that has not been uploaded.
  *
  * Privacy: a finding quotes only words the user typed themselves, plus column names and the engine's own words. It never
  * contains a cell value the user did not already write in the request. Whether a word occurs in a column is stated
@@ -18,7 +20,7 @@
 import type { Step } from '../types';
 import { conditionComparisons, mixesAndOr } from './engine.ts';
 
-export type GroundingKind = 'unused_value' | 'wrong_column' | 'invented_value' | 'no_sort' | 'mixed_logic';
+export type GroundingKind = 'unused_value' | 'wrong_column' | 'invented_value' | 'no_sort' | 'mixed_logic' | 'wrong_dataset';
 
 export interface Finding {
   kind: GroundingKind;
@@ -35,7 +37,12 @@ export interface Finding {
   negated?: boolean;
   /** invented_value: the word does appear in the request, but is not a value of any column. */
   inRequest?: boolean;
+  /** wrong_dataset: the dataset the workflow reads. `other` then names the uploaded dataset that does share words with the request. */
+  dataset?: string;
 }
+
+/** The name and column names of an uploaded dataset: all that is known about the ones the workflow does not read. */
+export interface DatasetOutline { name: string; columns: string[] }
 
 const MAX_DISTINCT = 500;      // a column with more distinct text values is free text or an id, not a list of choices
 const SMALL_COLUMN = 2;        // yes / no style columns: a value the request does not mention is normal there
@@ -81,7 +88,23 @@ function indexTable(columns: string[], rows: Record<string, string>[]): Index {
   return { values, written, distinct };
 }
 
-export function groundingFindings(request: string, steps: Step[], input: { columns: string[]; rows: Record<string, string>[] } | undefined): Finding[] {
+const FILLER = new Set(('a an the of in on at to for from by with and or not no is are was were be been do does did me my i we you it its this that these those '
+  + 'show shows list give get find tell what which who whom whose where when how many much all any every each only just also than then there their them '
+  + 'please want need would could should can will have has had more less over under above below between about out up down into per as if so '
+  + 'everything anything something everyone rows row records record data table tables result results entries entry information info file sheet').split(' '));
+/** The words of a text that say what it is about: no filler, no numbers. */
+const contentWords = (text: string): string[] => norm(text).split(' ').filter(w => w.length > 2 && !FILLER.has(w) && !/^[0-9]+$/.test(w));
+/** A word and its singular forms, so "employees", "employee" and "scores", "score" meet. */
+const forms = (w: string): string[] => {
+  const out = [w];
+  if (w.endsWith('ies')) out.push(`${w.slice(0, -3)}y`);
+  if (w.endsWith('es')) out.push(w.slice(0, -2));
+  if (w.endsWith('s') && !w.endsWith('ss')) out.push(w.slice(0, -1));
+  if (w.endsWith('ed')) out.push(w.slice(0, -2), w.slice(0, -1));
+  return out;
+};
+
+export function groundingFindings(request: string, steps: Step[], input: { columns: string[]; rows: Record<string, string>[] } | undefined, datasets: DatasetOutline[] = [], resultRows?: number): Finding[] {
   const out: Finding[] = [];
   const asked = ` ${norm(request)} `;
   const mentions = (n: string) => n !== '' && asked.includes(` ${n} `);
@@ -129,6 +152,25 @@ export function groundingFindings(request: string, steps: Step[], input: { colum
       out.push({ kind: 'invented_value', stepId: c.stepId, column: c.column, value: c.literal, text: `The filter compares ${c.column} with “${c.literal}”, which your request does not mention and which is not found in that column.` });
     } else if ((index.distinct.get(c.column) ?? 0) > SMALL_COLUMN) {
       out.push({ kind: 'invented_value', stepId: c.stepId, column: c.column, value: c.literal, text: `The filter compares ${c.column} with “${c.literal}”, which your request does not mention.` });
+    }
+  }
+
+  // 5. The request shares no word with the data the workflow reads. Only said when the request has words that say anything
+  // (not "show everything"); every uploaded dataset that does share words with it is named, so a rule can switch to it.
+  const wanted = contentWords(request);
+  // Said only about an EMPTY result: a request may use words the data does not ("staff" for an employees table) and still
+  // get the right rows, and the check cannot tell a synonym from another subject.
+  if (wanted.length && resultRows === 0) {
+    const source = steps.find(s => s.type === 'READ_CSV')?.config.file ?? '';
+    const vocabulary = new Set<string>();
+    for (const w of [...contentWords(source), ...input.columns.flatMap(contentWords), ...[...index.values.values()].flatMap(v => [...v].flatMap(contentWords))]) forms(w).forEach(f => vocabulary.add(f));
+    if (!wanted.some(w => forms(w).some(f => vocabulary.has(f)))) {
+      const fits = datasets.filter(d => d.name !== source).filter(d => {
+        const words = new Set([...contentWords(d.name), ...d.columns.flatMap(contentWords)].flatMap(forms));
+        return wanted.some(w => forms(w).some(f => words.has(f)));
+      });
+      const named = fits.length ? ` The uploaded dataset${fits.length > 1 ? 's' : ''} that share${fits.length > 1 ? '' : 's'} words with it: ${fits.map(d => d.name).join(', ')}.` : ' None of your other uploaded datasets shares words with it either, so the data it needs may not be uploaded.';
+      out.push({ kind: 'wrong_dataset', dataset: source || undefined, other: fits.length === 1 ? fits[0].name : undefined, text: `Nothing in the request matches the data this workflow reads${source ? ` (${source})` : ''}: no word of it is in the dataset's name, columns or values.${named}` });
     }
   }
 

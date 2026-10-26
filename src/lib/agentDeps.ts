@@ -9,9 +9,10 @@ import { findDataset, PreviewStop, runFlow } from './engine';
 import type { DatasetBrief } from './library';
 import { runContext } from './runContext';
 
-export function browserAgentDeps(request: string, datasets: DatasetBrief[], signal?: AbortSignal): Pick<AgentDeps, 'test' | 'revise' | 'request'> {
+export function browserAgentDeps(request: string, datasets: DatasetBrief[], signal?: AbortSignal): Pick<AgentDeps, 'test' | 'revise' | 'request' | 'datasets'> {
   return {
     request,
+    datasets: datasets.map(d => ({ name: d.name, columns: d.columns })),
     async test(steps: Step[]) {
       // With no data at all, only the user can help (upload it); asking the model would waste a call. With data
       // uploaded, a dataset name that matches nothing is the model's mistake, and the run error tells it the names.

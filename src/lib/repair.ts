@@ -8,7 +8,8 @@
  *   invented_value  the filter uses a value the request never mentions → take that comparison out;
  *   unused_value    the request names a value no filter uses → add `column == value` (or `!=` after "not", `in (...)` for several);
  *   mixed_logic     or-terms on one column next to and → put brackets round the or-terms;
- *   no_sort         "highest / lowest ..." with no sort → add `sort by <the column the request names>` (before any limit).
+ *   no_sort         "highest / lowest ..." with no sort → add `sort by <the column the request names>` (before any limit);
+ *   wrong_dataset   the request shares words with exactly one other uploaded dataset → read that one instead.
  *
  * Anything a rule cannot decide (which column to sort by is not named, an or between different columns) is left to the
  * model. Every repair is reported in plain words, shown to the user in the agent's rounds, and the user still reviews and
@@ -162,6 +163,12 @@ export function repairByRules(request: string, steps: Step[], findings: Finding[
     }
   };
 
+  // The request is about other data: read the one uploaded dataset that matches it. The filters were written for the wrong
+  // table, so the model gets the next turn to rewrite them (the run now shows what the right table looks like).
+  for (const f of findings.filter(x => x.kind === 'wrong_dataset' && x.other)) {
+    const read = work.find(s => s.type === 'READ_CSV' && (s.config.file ?? '') === (f.dataset ?? ''));
+    if (read) { read.config.file = f.other!; notes.push(`Read “${f.other}” instead of “${f.dataset ?? 'the dataset it was reading'}”, because that is the uploaded dataset your request talks about.`); }
+  }
   for (const f of findings.filter(x => x.kind === 'wrong_column' && x.column && x.value && x.other)) {
     editFilter(f.stepId, c => withColumnSwapped(c, f.column!, f.value!, f.other!), `Compared “${f.value}” with ${f.other} instead of ${f.column}, because that is the column that holds it.`);
   }

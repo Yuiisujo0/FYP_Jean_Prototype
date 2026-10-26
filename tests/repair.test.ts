@@ -124,3 +124,13 @@ test('with rules switched off the model is asked instead (so the evaluation can 
   });
   assert.equal(asked, 1);
 });
+
+test('wrong dataset: reads the one uploaded dataset the request talks about', () => {
+  const steps = mk([['READ_CSV', { file: 'inventory' }], ['FILTER', { condition: 'category == Sales' }], ['OUTPUT', { format: 'table' }]], 'wd');
+  const findings = [{ kind: 'wrong_dataset' as const, dataset: 'inventory', other: 'employees', text: 'x' }];
+  const fixed = repairByRules('Show employees in Sales', steps, findings, { columns: ['sku'] });
+  assert.equal(fixed?.steps[0].config.file, 'employees');
+  assert.match(fixed?.notes[0] ?? '', /employees/);
+  // several candidates, or none: left to the model
+  assert.equal(repairByRules('x', steps, [{ kind: 'wrong_dataset' as const, dataset: 'inventory', text: 'x' }], { columns: ['sku'] }), null);
+});

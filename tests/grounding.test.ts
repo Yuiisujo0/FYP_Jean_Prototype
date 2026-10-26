@@ -84,3 +84,26 @@ test('a word from the request that is no value of any column is reported, and ma
   const f = groundingFindings('Kuching staff in the inventory', [read, s('FILTER', { condition: "category == 'Staff'" }), out], input);
   assert.ok(f.some(x => x.kind === 'invented_value' && x.inRequest === true));
 });
+
+test('wrong dataset: a request about other data, with an empty result, names the uploaded dataset that fits', () => {
+  const others = [{ name: 'employees', columns: ['name', 'department', 'salary'] }, { name: 'inventory', columns: ['sku', 'item'] }];
+  const steps = [read, s('FILTER', { condition: 'category == Sales and stock > 6000' }), out];
+  const f = groundingFindings('Show employees in Sales earning over 6000', steps, input, others, 0);
+  assert.deepEqual(f.filter(x => x.kind === 'wrong_dataset').map(x => [x.dataset, x.other]), [['inventory', 'employees']]);
+  // privacy: the finding holds the dataset names and the engine's words only
+  assert.ok(!/SKU1|Lamp|Delta/.test(JSON.stringify(f)));
+});
+
+test('wrong dataset: with no other dataset that fits it is still said, but no dataset is named', () => {
+  const f = groundingFindings('Show employees in Sales', [read, s('FILTER', { condition: 'category == Sales' }), out], input, [{ name: 'inventory', columns: ['sku'] }], 0);
+  const w = f.find(x => x.kind === 'wrong_dataset');
+  assert.ok(w && w.other === undefined && /may not be uploaded/.test(w.text));
+});
+
+test('wrong dataset: quiet when rows came back, when a word matches, or when the request says nothing', () => {
+  const steps = [read, s('FILTER', { condition: 'supplier == Acme' }), out];
+  assert.equal(groundingFindings('Show employees in Sales', steps, input, [], 3).some(x => x.kind === 'wrong_dataset'), false);
+  assert.equal(groundingFindings('Show the items from Acme', steps, input, [], 0).some(x => x.kind === 'wrong_dataset'), false);
+  assert.equal(groundingFindings('Show everything', [read, out], input, [], 0).some(x => x.kind === 'wrong_dataset'), false);
+  assert.equal(groundingFindings('Items in stock', [read, out], input, [], 0).some(x => x.kind === 'wrong_dataset'), false);   // "items", "stock" are in the data
+});
