@@ -5,6 +5,9 @@ import { cleanBaseUrl } from '../pipeline/openaiAi';
 import { buildMessages, reviseMessages } from '../pipeline/prompt';
 import { ollamaApiBase, ollamaHelp, providerProblem, readProvider, writeProvider, type ProviderConfig } from '../lib/provider';
 
+const RECHECK_MS = 5000;
+const RECHECK_TRIES = 36;   // three minutes
+
 /**
  * The state of the AI the app generates with: the hosted service (Cloudflare Worker, or the Python backend locally),
  * Ollama on the user's computer, or the user's own API key. (The name is historical; this is the model connection.)
@@ -26,11 +29,14 @@ export function useOllama() {
     setProviderState(next);
   }, []);
 
-  const check = useCallback(async () => {
+  /** `quiet`: a background re-check that leaves the status as it is until the answer is in (no "checking" flicker). */
+  const probe = useCallback(async (quiet: boolean) => {
     const mine = ++run.current;
     const current = latest.current;
-    setStatus('checking');
-    setError('');
+    if (!quiet) {
+      setStatus('checking');
+      setError('');
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 6000);
     const finish = (ok: boolean, names: string[], message = '') => {
@@ -76,10 +82,24 @@ export function useOllama() {
       clearTimeout(timer);
     }
   }, []);
+  const check = useCallback(() => probe(false), [probe]);
 
   useEffect(() => {
     void check();
   }, [check]);
+
+  // Ollama takes a while to start (over a minute of GPU discovery on some laptops) and answers with errors until then.
+  // While it is offline, look again every few seconds, so the page connects by itself once it is ready. Stops after
+  // RECHECK_TRIES, when it comes online, or when the user picks another provider.
+  useEffect(() => {
+    if (status !== 'offline' || provider.kind !== 'ollama') return;
+    let tries = 0;
+    const timer = setInterval(() => {
+      if (++tries > RECHECK_TRIES) clearInterval(timer);
+      else void probe(true);
+    }, RECHECK_MS);
+    return () => clearInterval(timer);
+  }, [status, provider.kind, probe]);
 
   /** A short name for the model in use, e.g. "gpt-oss-20b", or a neutral label when none is known. */
   const modelName = (provider.kind === 'ollama' ? provider.ollamaModel : provider.kind === 'custom' ? provider.customModel : models[0])?.split('/').pop() || 'AI service';
