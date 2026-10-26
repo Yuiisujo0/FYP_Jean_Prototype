@@ -124,3 +124,16 @@ test('missing join: a column only another dataset has, with one shared column, a
   assert.equal(groundingFindings('Show each item with the country of its supplier', joined, input, others).some(x => x.kind === 'missing_join'), false);
   assert.equal(groundingFindings('Show each item and its supplier', [read, out], input, others).some(x => x.kind === 'missing_join'), false);
 });
+
+test('a number the request names that no step uses', () => {
+  assert.deepEqual(groundingFindings('Acme items with stock under 10', [read, s('FILTER', { condition: 'supplier == Acme' }), out], input).filter(x => x.kind === 'unused_number').map(x => x.value), ['10']);
+  assert.deepEqual(kinds('Acme items with stock under 10', s('FILTER', { condition: 'supplier == Acme and stock < 10' })), []);
+  assert.deepEqual(kinds('The 2 items with the most stock', s('TRANSFORM', { operation: 'sort by stock desc' }), s('TRANSFORM', { operation: 'limit 2' })), []);
+});
+
+test('lost not: the request says not / except / neither before a value the filter keeps', () => {
+  const f = groundingFindings('Items that are not from Acme', [read, s('FILTER', { condition: 'supplier == Acme' }), out], input);
+  assert.deepEqual(f.filter(x => x.kind === 'lost_not').map(x => [x.column, x.value]), [['supplier', 'Acme']]);
+  assert.equal(groundingFindings('Items that are neither Tools nor Furniture', [read, s('FILTER', { condition: 'category in (Tools, Furniture)' }), out], input).filter(x => x.kind === 'lost_not').length, 2);
+  assert.deepEqual(kinds('Items that are not from Acme', s('FILTER', { condition: 'supplier != Acme' })), []);
+});

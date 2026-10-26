@@ -141,3 +141,11 @@ test('missing join: joins the dataset that has the column, right after the read'
   const fixed = repairByRules('Show each item with the country of its supplier', steps, findings, { columns: ['sku', 'item', 'supplier'] });
   assert.deepEqual(fixed?.steps.map(s => s.config.operation ?? s.type), ['READ_CSV', 'join suppliers on supplier', 'select columns item, supplier, country', 'OUTPUT']);
 });
+
+test('lost not: == becomes !=, and an in-list becomes not in once', () => {
+  const steps = mk([['READ_CSV', { file: 'inventory' }], ['FILTER', { condition: 'category in (Tools, Furniture) and stock < 5' }], ['OUTPUT', { format: 'table' }]], 'ln');
+  const both = ['Tools', 'Furniture'].map(value => ({ kind: 'lost_not' as const, stepId: 'ln1', column: 'category', value, text: 'x' }));
+  assert.equal(repairByRules('Items neither Tools nor Furniture with stock under 5', steps, both, { columns: ['category'] })?.steps[1].config.condition, 'category not in (Tools, Furniture) and stock < 5');
+  const one = mk([['READ_CSV', { file: 'inventory' }], ['FILTER', { condition: 'supplier == Acme' }], ['OUTPUT', { format: 'table' }]], 'lo');
+  assert.equal(repairByRules('Items not from Acme', one, [{ kind: 'lost_not' as const, stepId: 'lo1', column: 'supplier', value: 'Acme', text: 'x' }], { columns: ['supplier'] })?.steps[1].config.condition, 'supplier != Acme');
+});

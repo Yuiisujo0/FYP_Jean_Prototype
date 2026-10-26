@@ -11,7 +11,9 @@
  *   wrong_dataset   no word of the request occurs in the dataset the workflow reads (its name, columns or values): the
  *                   request is probably about other data, or about data that has not been uploaded;
  *   missing_join    the request names a column that only another uploaded dataset has ("the country of its supplier"),
- *                   that dataset shares exactly one column with this one, and nothing joins it.
+ *                   that dataset shares exactly one column with this one, and nothing joins it;
+ *   unused_number   the request names a number ("attendance under 70") that no step uses;
+ *   lost_not        the request says "not" / "except" right before a value, but the filter keeps that value (== or in).
  *
  * Privacy: a finding quotes only words the user typed themselves, plus column names and the engine's own words. It never
  * contains a cell value the user did not already write in the request. Whether a word occurs in a column is stated
@@ -22,7 +24,7 @@
 import type { Step } from '../types';
 import { conditionComparisons, mixesAndOr } from './engine.ts';
 
-export type GroundingKind = 'unused_value' | 'wrong_column' | 'invented_value' | 'no_sort' | 'mixed_logic' | 'wrong_dataset' | 'missing_join';
+export type GroundingKind = 'unused_value' | 'wrong_column' | 'invented_value' | 'no_sort' | 'mixed_logic' | 'wrong_dataset' | 'missing_join' | 'unused_number' | 'lost_not';
 
 export interface Finding {
   kind: GroundingKind;
@@ -52,7 +54,7 @@ const SMALL_COLUMN = 2;        // yes / no style columns: a value the request do
 const RANKING = /\b(most|least|highest|lowest|top|best|worst|cheapest|dearest|largest|smallest|biggest|longest|shortest|oldest|newest|youngest)\b/i;
 
 const isNumeric = (s: string) => s.trim() !== '' && Number.isFinite(Number(s));
-const NEGATION = /\b(not|except|excluding|exclude|outside|without|never|other than)\b/;
+const NEGATION = /\b(not|except|excluding|exclude|outside|without|never|neither|nor|other than)\b/;
 /** True if "not", "except", ... comes within the three words before `value` in the (normalised) request. */
 const negatedBefore = (asked: string, value: string): boolean => {
   const at = asked.indexOf(` ${value} `);
@@ -119,6 +121,14 @@ export function groundingFindings(request: string, steps: Step[], input: { colum
     }
   }
 
+  // A number the request names that no step uses: "attendance under 70" became a filter on the course alone.
+  const stepText = ` ${steps.map(st => Object.values(st.config).join(' ')).join(' ')} `;
+  for (const n of new Set(request.match(/(?<![\w.,])\d+(?:\.\d+)?(?![\w.,%]?\w)/g) ?? [])) {
+    if (!new RegExp(`(?<![\\w.])${n.replace('.', '\\.')}(?![\\w])`).test(stepText)) {
+      out.push({ kind: 'unused_number', value: n, text: `Your request mentions ${n}, but no step uses it.` });
+    }
+  }
+
   if (!input) return out;   // nothing was read, so there is no data to compare the words with
   const index = indexTable(input.columns, input.rows);
   const comparisons = filters.flatMap(f => conditionComparisons(f.config.condition ?? '', input.columns).map(c => ({ ...c, stepId: f.id })));
@@ -145,6 +155,9 @@ export function groundingFindings(request: string, steps: Step[], input: { colum
     checked.add(key);
     const inColumn = index.values.get(c.column)?.has(n) ?? false;
     if (mentions(n)) {
+      if (inColumn && ['==', '=', 'in'].includes(c.op) && negatedBefore(asked, n)) {
+        out.push({ kind: 'lost_not', stepId: c.stepId, column: c.column, value: c.literal, text: `Your request says not “${c.literal}”, but the filter keeps the rows where ${c.column} is “${c.literal}”.` });
+      }
       if (inColumn) continue;
       const other = [...index.values].find(([col, vals]) => col !== c.column && vals.has(n))?.[0];
       if (other) out.push({ kind: 'wrong_column', stepId: c.stepId, column: c.column, value: c.literal, other, text: `The filter compares ${c.column} with “${c.literal}”, but “${c.literal}” is a value in the column ${other}, not in ${c.column}.` });

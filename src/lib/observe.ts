@@ -19,7 +19,7 @@ export type SignalKind = 'run_error' | 'no_rows' | 'skipped_step' | 'undecided_r
  * non-numeric cells are a fact about the data, not a mistake in the plan. (Decided after tests/signal-analysis.ts
  * showed it fired on more right workflows than wrong ones, 18 to 10, over all saved runs including the holdout.)
  */
-export const REVISE_ON: ReadonlySet<SignalKind> = new Set<SignalKind>(['run_error', 'no_rows', 'skipped_step', 'filter_kept_all', 'unused_value', 'wrong_column', 'invented_value', 'no_sort', 'mixed_logic', 'wrong_dataset', 'missing_join']);
+export const REVISE_ON: ReadonlySet<SignalKind> = new Set<SignalKind>(['run_error', 'no_rows', 'skipped_step', 'filter_kept_all', 'unused_value', 'wrong_column', 'invented_value', 'no_sort', 'mixed_logic', 'wrong_dataset', 'missing_join', 'unused_number', 'lost_not']);
 
 export interface Signal {
   kind: SignalKind;

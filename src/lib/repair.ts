@@ -10,7 +10,10 @@
  *   mixed_logic     or-terms on one column next to and → put brackets round the or-terms;
  *   no_sort         "highest / lowest ..." with no sort → add `sort by <the column the request names>` (before any limit);
  *   wrong_dataset   the request shares words with exactly one other uploaded dataset → read that one instead;
- *   missing_join    the request names a column only another dataset has → join that dataset on the one column both share.
+ *   missing_join    the request names a column only another dataset has → join that dataset on the one column both share;
+ *   lost_not        "not X" in the request, but the filter keeps X → == becomes !=, in becomes not in.
+ *
+ * unused_number ("under 70" dropped) has no rule: which column and which comparison the number belongs to is the model's call.
  *
  * Anything a rule cannot decide (which column to sort by is not named, an or between different columns) is left to the
  * model. Every repair is reported in plain words, shown to the user in the agent's rounds, and the user still reviews and
@@ -88,6 +91,26 @@ function withColumnSwapped(condition: string, column: string, value: string, oth
     if (squash(tokens[i]) !== squash(column) || !['==', '=', '!='].includes(tokens[i + 1])) continue;
     const v = valueAt(tokens, i + 2);
     if (v && v.text.toLowerCase() === value.toLowerCase()) { const next = [...tokens]; next[i] = other; return tidy(next); }
+  }
+  return null;
+}
+
+/** The condition with the comparison of `column` against `value` negated: == becomes !=, in (...) becomes not in (...). */
+function withComparisonNegated(condition: string, column: string, value: string): string | null {
+  let tokens: string[];
+  try { tokens = tokenize(condition); } catch { return null; }
+  for (let i = 0; i + 2 < tokens.length; i++) {
+    if (squash(tokens[i]) !== squash(column)) continue;
+    if (['==', '='].includes(tokens[i + 1])) {
+      const v = valueAt(tokens, i + 2);
+      if (v && v.text.toLowerCase() === value.toLowerCase()) { const next = [...tokens]; next[i + 1] = '!='; return tidy(next); }
+    }
+    if (tokens[i + 1].toLowerCase() === 'in' && tokens[i - 1]?.toLowerCase() !== 'not' && tokens[i + 2] === '(') {
+      const close = tokens.indexOf(')', i + 2);
+      if (close > 0 && tokens.slice(i + 3, close).some(t => unquote(t).toLowerCase() === value.toLowerCase())) {
+        const next = [...tokens]; next[i + 1] = 'not in'; return tidy(next);
+      }
+    }
   }
   return null;
 }
@@ -185,6 +208,12 @@ export function repairByRules(request: string, steps: Step[], findings: Finding[
       s.config.operation = `${m[1]}${m[2].trim()}, ${f.column}`;
       notes.push(`Kept ${f.column} in “${s.config.operation.trim()}”.`);
     }
+  }
+  const negated = new Set<string>();   // one `in (a, b)` list is negated once, though each of its values was reported
+  for (const f of findings.filter(x => x.kind === 'lost_not' && x.column && x.value)) {
+    if (negated.has(`${f.stepId}|${f.column}`)) continue;
+    negated.add(`${f.stepId}|${f.column}`);
+    editFilter(f.stepId, c => withComparisonNegated(c, f.column!, f.value!), `Changed the filter to leave out ${f.column} “${f.value}”, because your request says not “${f.value}”.`);
   }
   for (const f of findings.filter(x => x.kind === 'wrong_column' && x.column && x.value && x.other)) {
     editFilter(f.stepId, c => withColumnSwapped(c, f.column!, f.value!, f.other!), `Compared “${f.value}” with ${f.other} instead of ${f.column}, because that is the column that holds it.`);
