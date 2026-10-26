@@ -134,3 +134,10 @@ test('wrong dataset: reads the one uploaded dataset the request talks about', ()
   // several candidates, or none: left to the model
   assert.equal(repairByRules('x', steps, [{ kind: 'wrong_dataset' as const, dataset: 'inventory', text: 'x' }], { columns: ['sku'] }), null);
 });
+
+test('missing join: joins the dataset that has the column, right after the read', () => {
+  const steps = mk([['READ_CSV', { file: 'inventory' }], ['TRANSFORM', { operation: 'select columns item, supplier' }], ['OUTPUT', { format: 'table' }]], 'mj');
+  const findings = [{ kind: 'missing_join' as const, dataset: 'suppliers', column: 'country', other: 'supplier', text: 'x' }];
+  const fixed = repairByRules('Show each item with the country of its supplier', steps, findings, { columns: ['sku', 'item', 'supplier'] });
+  assert.deepEqual(fixed?.steps.map(s => s.config.operation ?? s.type), ['READ_CSV', 'join suppliers on supplier', 'select columns item, supplier, country', 'OUTPUT']);
+});

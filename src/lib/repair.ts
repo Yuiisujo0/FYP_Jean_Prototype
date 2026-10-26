@@ -9,7 +9,8 @@
  *   unused_value    the request names a value no filter uses → add `column == value` (or `!=` after "not", `in (...)` for several);
  *   mixed_logic     or-terms on one column next to and → put brackets round the or-terms;
  *   no_sort         "highest / lowest ..." with no sort → add `sort by <the column the request names>` (before any limit);
- *   wrong_dataset   the request shares words with exactly one other uploaded dataset → read that one instead.
+ *   wrong_dataset   the request shares words with exactly one other uploaded dataset → read that one instead;
+ *   missing_join    the request names a column only another dataset has → join that dataset on the one column both share.
  *
  * Anything a rule cannot decide (which column to sort by is not named, an or between different columns) is left to the
  * model. Every repair is reported in plain words, shown to the user in the agent's rounds, and the user still reviews and
@@ -168,6 +169,22 @@ export function repairByRules(request: string, steps: Step[], findings: Finding[
   for (const f of findings.filter(x => x.kind === 'wrong_dataset' && x.other)) {
     const read = work.find(s => s.type === 'READ_CSV' && (s.config.file ?? '') === (f.dataset ?? ''));
     if (read) { read.config.file = f.other!; notes.push(`Read “${f.other}” instead of “${f.dataset ?? 'the dataset it was reading'}”, because that is the uploaded dataset your request talks about.`); }
+  }
+  // A column only another dataset has: join it right after the data is read, so every later step can use the column.
+  const joins = findings.filter(x => x.kind === 'missing_join' && x.dataset && x.other);
+  if (joins.length === 1) {
+    const [f] = joins;
+    const op = `join ${f.dataset} on ${f.other}`;
+    const at = work.findIndex(s => s.type === 'READ_CSV' || s.type === 'READ_FILE' || s.type === 'INPUT') + 1;
+    work.splice(at, 0, mkStep('TRANSFORM', { operation: op }, 'Transform data'));
+    notes.push(`Added “${op}”, because your request mentions ${f.column}, which only ${f.dataset} has.`);
+    // A later "select columns ..." that leaves the joined column out would throw it away again.
+    for (const s of work.slice(at + 1)) {
+      const m = s.type === 'TRANSFORM' ? /^(\s*select(?:\s+columns)?\s+)(.+)$/i.exec(s.config.operation ?? '') : null;
+      if (!m || m[2].split(',').some(c => squash(c) === squash(f.column!))) continue;
+      s.config.operation = `${m[1]}${m[2].trim()}, ${f.column}`;
+      notes.push(`Kept ${f.column} in “${s.config.operation.trim()}”.`);
+    }
   }
   for (const f of findings.filter(x => x.kind === 'wrong_column' && x.column && x.value && x.other)) {
     editFilter(f.stepId, c => withColumnSwapped(c, f.column!, f.value!, f.other!), `Compared “${f.value}” with ${f.other} instead of ${f.column}, because that is the column that holds it.`);

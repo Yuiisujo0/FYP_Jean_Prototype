@@ -107,3 +107,20 @@ test('wrong dataset: quiet when rows came back, when a word matches, or when the
   assert.equal(groundingFindings('Show everything', [read, out], input, [], 0).some(x => x.kind === 'wrong_dataset'), false);
   assert.equal(groundingFindings('Items in stock', [read, out], input, [], 0).some(x => x.kind === 'wrong_dataset'), false);   // "items", "stock" are in the data
 });
+
+test('"not" before a value the request names is noticed (the negation pattern once held control characters and never matched)', () => {
+  const f = groundingFindings('Items that are not from Acme', [read, out], input);
+  assert.deepEqual(f.filter(x => x.kind === 'unused_value').map(x => [x.value, x.negated]), [['Acme', true]]);
+  const g = groundingFindings('Items from Acme', [read, out], input);
+  assert.deepEqual(g.filter(x => x.kind === 'unused_value').map(x => [x.value, x.negated]), [['Acme', false]]);
+});
+
+test('missing join: a column only another dataset has, with one shared column, and no join step', () => {
+  const others = [{ name: 'suppliers', columns: ['supplier', 'country', 'lead_days'] }, { name: 'courses', columns: ['course', 'title'] }];
+  const f = groundingFindings('Show each item with the country of its supplier', [read, out], input, others);
+  assert.deepEqual(f.filter(x => x.kind === 'missing_join').map(x => [x.dataset, x.column, x.other]), [['suppliers', 'country', 'supplier']]);
+  // already joined, or the column is not named: quiet
+  const joined = [read, s('TRANSFORM', { operation: 'join suppliers on supplier' }), out];
+  assert.equal(groundingFindings('Show each item with the country of its supplier', joined, input, others).some(x => x.kind === 'missing_join'), false);
+  assert.equal(groundingFindings('Show each item and its supplier', [read, out], input, others).some(x => x.kind === 'missing_join'), false);
+});

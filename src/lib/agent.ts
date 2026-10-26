@@ -117,6 +117,7 @@ const SIGNAL_TEXT: Record<string, string> = {
   no_sort: 'the request asks for a ranking but nothing sorts the rows.',
   mixed_logic: 'and / or are mixed without brackets.',
   wrong_dataset: 'the request does not match the data the workflow reads.',
+  missing_join: 'the request names a column from another dataset that nothing joins.',
   run_error: 'the run stopped with an error.',
   no_rows: 'the result was empty.',
   skipped_step: 'a step did not run.',

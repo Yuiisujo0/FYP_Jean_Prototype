@@ -9,7 +9,9 @@
  *   no_sort         the request asks for the highest, lowest, best... but nothing sorts the rows;
  *   mixed_logic     and / or are mixed without brackets (and is applied first, which is often not what was meant);
  *   wrong_dataset   no word of the request occurs in the dataset the workflow reads (its name, columns or values): the
- *                   request is probably about other data, or about data that has not been uploaded.
+ *                   request is probably about other data, or about data that has not been uploaded;
+ *   missing_join    the request names a column that only another uploaded dataset has ("the country of its supplier"),
+ *                   that dataset shares exactly one column with this one, and nothing joins it.
  *
  * Privacy: a finding quotes only words the user typed themselves, plus column names and the engine's own words. It never
  * contains a cell value the user did not already write in the request. Whether a word occurs in a column is stated
@@ -20,7 +22,7 @@
 import type { Step } from '../types';
 import { conditionComparisons, mixesAndOr } from './engine.ts';
 
-export type GroundingKind = 'unused_value' | 'wrong_column' | 'invented_value' | 'no_sort' | 'mixed_logic' | 'wrong_dataset';
+export type GroundingKind = 'unused_value' | 'wrong_column' | 'invented_value' | 'no_sort' | 'mixed_logic' | 'wrong_dataset' | 'missing_join';
 
 export interface Finding {
   kind: GroundingKind;
@@ -37,7 +39,8 @@ export interface Finding {
   negated?: boolean;
   /** invented_value: the word does appear in the request, but is not a value of any column. */
   inRequest?: boolean;
-  /** wrong_dataset: the dataset the workflow reads. `other` then names the uploaded dataset that does share words with the request. */
+  /** wrong_dataset: the dataset the workflow reads. `other` then names the uploaded dataset that does share words with the request.
+   *  missing_join: the dataset to join; `column` is the column the request names, `other` the column both datasets have. */
   dataset?: string;
 }
 
@@ -49,7 +52,7 @@ const SMALL_COLUMN = 2;        // yes / no style columns: a value the request do
 const RANKING = /\b(most|least|highest|lowest|top|best|worst|cheapest|dearest|largest|smallest|biggest|longest|shortest|oldest|newest|youngest)\b/i;
 
 const isNumeric = (s: string) => s.trim() !== '' && Number.isFinite(Number(s));
-const NEGATION = /(not|except|excluding|exclude|outside|without|never|other than)/;
+const NEGATION = /\b(not|except|excluding|exclude|outside|without|never|other than)\b/;
 /** True if "not", "except", ... comes within the three words before `value` in the (normalised) request. */
 const negatedBefore = (asked: string, value: string): boolean => {
   const at = asked.indexOf(` ${value} `);
@@ -172,6 +175,22 @@ export function groundingFindings(request: string, steps: Step[], input: { colum
       const named = fits.length ? ` The uploaded dataset${fits.length > 1 ? 's' : ''} that share${fits.length > 1 ? '' : 's'} words with it: ${fits.map(d => d.name).join(', ')}.` : ' None of your other uploaded datasets shares words with it either, so the data it needs may not be uploaded.';
       out.push({ kind: 'wrong_dataset', dataset: source || undefined, other: fits.length === 1 ? fits[0].name : undefined, text: `Nothing in the request matches the data this workflow reads${source ? ` (${source})` : ''}: no word of it is in the dataset's name, columns or values.${named}` });
     }
+  }
+
+  // 6. A column the request names that only another dataset has, with one shared column to join on, and no join.
+  // Generic words are filler already; a column the read table also has is never counted.
+  const own = new Set(input.columns.map(norm));
+  const joined = new Set(steps.filter(s => s.type === 'TRANSFORM').map(s => /^\s*join\s+(.+?)\s+on\b/i.exec(s.config.operation ?? '')?.[1].trim().toLowerCase()).filter(Boolean));
+  const source = steps.find(s => s.type === 'READ_CSV')?.config.file ?? '';
+  const asks = new Set(contentWords(request).flatMap(forms));
+  const names = (column: string) => { const n = norm(column); return n.includes(' ') ? asked.includes(` ${n} `) : forms(n).some(f => asks.has(f)); };
+  for (const d of datasets) {
+    if (d.name === source || joined.has(d.name.toLowerCase())) continue;
+    const shared = d.columns.filter(c => own.has(norm(c)));
+    if (shared.length !== 1) continue;
+    const column = d.columns.find(c => !own.has(norm(c)) && !FILLER.has(norm(c)) && names(c));
+    if (!column) continue;
+    out.push({ kind: 'missing_join', dataset: d.name, column, other: shared[0], text: `Your request mentions “${column}”, which is a column of the dataset ${d.name}, not of ${source || 'the data this workflow reads'}, and nothing joins ${d.name}. It can be joined on ${shared[0]}: join ${d.name} on ${shared[0]}.` });
   }
 
   // 4. Highest / lowest / best asked for, but nothing sorts.
