@@ -1,0 +1,27 @@
+sku,item,category,stock,reorder_level,supplier
+SKU001,Lamp 1,Tools,8,20,Delta Trading
+SKU002,Drill 2,Tools,3,10,Acme
+SKU003,Lamp 3,Electronics,40,10,Acme
+SKU004,Lamp 4,Tools,0,5,Borneo Supply
+SKU005,Notebook 5,Tools,12,30,Borneo Supply
+SKU006,Marker 6,Stationery,25,10,Borneo Supply
+SKU007,Charger 7,Furniture,12,20,Delta Trading
+SKU008,Fan 8,Tools,75,30,Delta Trading
+SKU009,Fan 9,Tools,12,30,Acme
+SKU010,Fan 10,Furniture,12,10,Borneo Supply
+SKU011,Lamp 11,Furniture,40,30,Acme
+SKU012,Fan 12,Tools,8,30,Acme
+SKU013,Router 13,Electronics,40,20,Delta Trading
+SKU014,Notebook 14,Electronics,40,30,Acme
+SKU015,Router 15,Stationery,75,10,Delta Trading
+SKU016,Router 16,Stationery,12,20,Borneo Supply
+SKU017,Chair 17,Tools,8,10,Delta Trading
+SKU018,Drill 18,Electronics,0,30,Borneo Supply
+SKU019,Router 19,Furniture,8,20,Acme
+SKU020,Drill 20,Tools,0,5,Borneo Supply
+SKU021,Marker 21,Furniture,0,5,Delta Trading
+SKU022,Router 22,Furniture,0,5,Borneo Supply
+SKU023,Lamp 23,Electronics,75,20,Delta Trading
+SKU024,Cable 24,Electronics,25,20,Borneo Supply
+SKU025,Marker 25,Stationery,8,10,Delta Trading
+SKU026,Lamp 26,Electronics,40,10,Delta Trading

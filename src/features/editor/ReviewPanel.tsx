@@ -52,17 +52,57 @@ function ExceptionItem({ e, editor, onFocusNode }: { e: RunException; editor: Fl
   );
 }
 
-/** The review of a run's result: totals, exceptions, assumptions, approval and the report. */
-export function ReviewPanel({ editor, onFocusNode }: { editor: FlowEditor; onFocusNode: (id: string) => void }) {
+/** How many rows were read, kept, left out and flagged, and whether that adds up. */
+export function ReviewTotals({ editor }: { editor: FlowEditor }) {
+  const reg = editor.result?.register;
+  if (!editor.result) return null;
+  return reg ? (
+    <p className={`review__totals ${reg.balanced ? 'is-ok' : 'is-bad'}`}>
+      Read <b>{reg.total}</b> rows from {reg.source}: <b>{reg.kept}</b> in the result, <b>{reg.excluded}</b> left out by the steps,{' '}
+      <b>{reg.flagged}</b> flagged. {reg.balanced ? 'Every row is accounted for.' : 'The totals do not add up.'}
+    </p>
+  ) : <p className="check__hint">This workflow reads no data, so there are no rows to account for.</p>;
+}
+
+/** What a person must look at before relying on the result: exceptions to accept and assumptions to confirm. */
+export function NeedsYourEye({ editor, onFocusNode }: { editor: FlowEditor; onFocusNode: (id: string) => void }) {
+  const { result, assumptions, decisions, stale } = editor;
+  if (!result) return null;
+  const critical = result.exceptions.filter(e => e.severity === 'critical');
+  const warnings = result.exceptions.filter(e => e.severity === 'warning');
+  return (
+    <>
+      {stale && <p className="review__stale"><TriangleAlert size={15} aria-hidden /> The workflow changed after this run. Run it again to review the new result.</p>}
+
+      {critical.length + warnings.length > 0 ? (
+        <ul className="review__list">
+          {[...critical, ...warnings].map(e => <ExceptionItem key={e.id} e={e} editor={editor} onFocusNode={onFocusNode} />)}
+        </ul>
+      ) : <p className="check__hint">No exceptions: nothing was left unchecked or skipped.</p>}
+
+      {assumptions.length > 0 && (
+        <div className="review__assume">
+          <p className="review__label">Confirm what the workflow assumes</p>
+          {assumptions.map(a => (
+            <label key={a.id} className="review__check">
+              <input type="checkbox" checked={!!decisions.confirmed[a.id]} onChange={e => editor.confirmAssumption(a.id, e.target.checked)} />
+              <span>{a.text}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** The approval of the result on screen and the Excel report. */
+export function ApproveBox({ editor }: { editor: FlowEditor }) {
   const { profile } = useWorkspace();
   const [approver, setApprover] = useState(profile.name);
   const [approving, setApproving] = useState(false);
   const [message, setMessage] = useState('');
-  const { result, gate, assumptions, decisions, stale, approval, approvalCurrent, approvalForResult } = editor;
+  const { result, gate, approval, approvalCurrent, approvalForResult } = editor;
   if (!result || !gate) return null;
-  const reg = result.register;
-  const critical = result.exceptions.filter(e => e.severity === 'critical');
-  const warnings = result.exceptions.filter(e => e.severity === 'warning');
 
   const doApprove = async () => {
     setApproving(true);
@@ -83,36 +123,7 @@ export function ReviewPanel({ editor, onFocusNode }: { editor: FlowEditor; onFoc
   };
 
   return (
-    <section className="check__block review" aria-label="Review">
-      <h4>Review <small>before anyone relies on this result</small></h4>
-
-      {stale && <p className="review__stale"><TriangleAlert size={15} aria-hidden /> The workflow changed after this run. Run it again to review the new result.</p>}
-
-      {reg ? (
-        <p className={`review__totals ${reg.balanced ? 'is-ok' : 'is-bad'}`}>
-          Read <b>{reg.total}</b> rows from {reg.source}: <b>{reg.kept}</b> in the result, <b>{reg.excluded}</b> left out by the steps,{' '}
-          <b>{reg.flagged}</b> flagged. {reg.balanced ? 'Every row is accounted for.' : 'The totals do not add up.'}
-        </p>
-      ) : <p className="check__hint">This workflow reads no data, so there are no rows to account for.</p>}
-
-      {critical.length + warnings.length > 0 ? (
-        <ul className="review__list">
-          {[...critical, ...warnings].map(e => <ExceptionItem key={e.id} e={e} editor={editor} onFocusNode={onFocusNode} />)}
-        </ul>
-      ) : <p className="check__hint">No exceptions: nothing was left unchecked or skipped.</p>}
-
-      {assumptions.length > 0 && (
-        <div className="review__assume">
-          <p className="review__label">Confirm what the workflow assumes</p>
-          {assumptions.map(a => (
-            <label key={a.id} className="review__check">
-              <input type="checkbox" checked={!!decisions.confirmed[a.id]} onChange={e => editor.confirmAssumption(a.id, e.target.checked)} />
-              <span>{a.text}</span>
-            </label>
-          ))}
-        </div>
-      )}
-
+    <>
       {approval && approvalCurrent !== null && (
         <p className={`review__approval ${approvalCurrent ? 'is-ok' : 'is-old'}`}>
           <BadgeCheck size={16} aria-hidden />
@@ -144,6 +155,19 @@ export function ReviewPanel({ editor, onFocusNode }: { editor: FlowEditor; onFoc
       <Button size="sm" icon={<FileSpreadsheet size={15} />} onClick={report}>
         Download report (Excel){approvalForResult ? '' : ', draft'}
       </Button>
+    </>
+  );
+}
+
+/** The review of a run's result: totals, exceptions, assumptions, approval and the report. */
+export function ReviewPanel({ editor, onFocusNode }: { editor: FlowEditor; onFocusNode: (id: string) => void }) {
+  if (!editor.result || !editor.gate) return null;
+  return (
+    <section className="check__block review" aria-label="Review">
+      <h4>Review <small>before anyone relies on this result</small></h4>
+      <ReviewTotals editor={editor} />
+      <NeedsYourEye editor={editor} onFocusNode={onFocusNode} />
+      <ApproveBox editor={editor} />
     </section>
   );
 }

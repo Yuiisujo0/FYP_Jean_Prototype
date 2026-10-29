@@ -1,0 +1,37 @@
+loan_id,member,book,genre,loaned_on,due_on,returned,fine_rm
+L0001,Kevin Abdullah,Data Basics,Science,2026-01-06,2026-01-20,yes,0
+L0002,Rahim Anak Jaban,Calm Mind,Self Help,2026-01-23,2026-02-06,yes,0
+L0003,Aisyah Anak Jaban,Small Habits,Self Help,2026-02-19,2026-03-05,yes,0
+L0004,Ivan Lau,Deep Ocean,Science,2026-02-19,2026-03-05,yes,0
+L0005,Priya Tan,Deep Ocean,Science,2026-03-19,2026-04-02,no,6
+L0006,Farah Lau,Web Basics,Technology,2026-02-20,2026-03-06,no,10
+L0007,Nurul Wong,Cooking Together,Cooking,2026-01-13,2026-01-27,no,
+L0008,Marcus Ng,Code and Craft,Technology,2026-04-03,2026-04-17,yes,0
+L0009,Mei Ng,The Last Ferry,Fiction,2026-01-19,2026-02-02,no,
+L0010,Kevin Wong,Web Basics,Technology,2026-02-11,2026-02-25,no,10
+L0011,Jason Rahman,Night Sky,Fiction,2026-02-04,2026-02-18,yes,0
+L0012,Zul Tan,Rice and Spice,Cooking,2026-03-06,2026-03-20,yes,8
+L0013,Priya Hassan,Rice and Spice,Cooking,2026-01-23,2026-02-06,yes,5
+L0014,Mei Abdullah,Night Sky,Fiction,2026-02-07,2026-02-21,yes,0
+L0015,Priya Chong,Night Sky,Fiction,2026-02-06,2026-02-20,yes,8
+L0016,Mei Chong,Rice and Spice,Cooking,2026-01-10,2026-01-24,yes,0
+L0017,Nadia Tan,Data Basics,Science,2026-03-21,2026-04-04,no,3
+L0018,Lim Abdullah,The Last Ferry,Fiction,2026-02-16,2026-03-02,no,6
+L0019,Dayang Abdullah,Calm Mind,Self Help,2026-02-12,2026-02-26,no,3
+L0020,Hafiz Yusof,Cooking Together,Cooking,2026-01-06,2026-01-20,yes,2
+L0021,Marcus Anak Jaban,Deep Ocean,Science,2026-02-06,2026-02-20,yes,0
+L0022,Farah Abdullah,Deep Ocean,Science,2026-04-02,2026-04-16,yes,0
+L0023,Jason Rahman,Small Habits,Self Help,2026-02-02,2026-02-16,yes,0
+L0024,Siti Anak Jaban,Small Habits,Self Help,2026-03-19,2026-04-02,no,3
+L0025,Dayang Chong,Old Kuching,History,2026-02-17,2026-03-03,no,10
+L0026,Amina Tan,Code and Craft,Technology,2026-01-20,2026-02-03,no,10
+L0027,Ethan Ismail,Calm Mind,Self Help,2026-03-29,2026-04-12,no,
+L0028,Ethan Yusof,Borneo Folktales,History,2026-02-25,2026-03-11,yes,2
+L0029,Bryan Rahman,Web Basics,Technology,2026-03-05,2026-03-19,yes,8
+L0030,Aisyah Anak Jaban,Cooking Together,Cooking,2026-03-23,2026-04-06,no,
+L0031,Zul Lau,Borneo Folktales,History,2026-02-19,2026-03-05,yes,0
+L0032,Hana Rahman,River Stories,Fiction,2026-01-13,2026-01-27,yes,0
+L0033,Farah Wong,Small Habits,Self Help,2026-03-02,2026-03-16,yes,0
+L0034,Hana Wong,Old Kuching,History,2026-02-27,2026-03-13,yes,0
+L0035,Priya Ng,Web Basics,Technology,2026-01-23,2026-02-06,yes,0
+L0036,Chloe Lee,Web Basics,Technology,2026-01-26,2026-02-09,no,

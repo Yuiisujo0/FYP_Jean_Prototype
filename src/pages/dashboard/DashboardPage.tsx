@@ -2,10 +2,8 @@ import { ArrowRight, Clock3, Plus, Workflow as WorkflowIcon } from 'lucide-react
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FlowPreview } from '../../components/FlowPreview';
-import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { timeAgo } from '../../lib/format';
-import { useDialogs } from '../../state/DialogsContext';
 import { useWorkspace } from '../../state/WorkspaceContext';
 import './DashboardPage.css';
 
@@ -129,7 +127,6 @@ function HowItWorks() {
 
 export function DashboardPage() {
   const { flows, knowledge, ollama, profile } = useWorkspace();
-  const { openCreate } = useDialogs();
 
   const recent = flows.slice(0, 3);
 
@@ -139,7 +136,8 @@ export function DashboardPage() {
   return (
     <div className="page dash">
       <header className="dash__top">
-        <h1 className="welcome">Welcome back{name ? <>, <em>{name}</em></> : ''}</h1>
+        {/* Nobody is greeted by name until they give one on the Profile page. */}
+        <h1 className="welcome">{name ? <>Welcome back, <em>{name}</em></> : 'Welcome to jwork'}</h1>
       </header>
 
       <section className="counts" aria-label="Workspace summary">
@@ -186,8 +184,8 @@ export function DashboardPage() {
             <EmptyState
               icon={<WorkflowIcon size={24} />}
               title="No workflows yet"
-              description="Describe a task on the Generate page, or start from a blank flow."
-              action={<Button variant="primary" icon={<Plus size={16} />} onClick={openCreate}>Create workflow</Button>}
+              description="Describe the list or total you need on the Generate page. There are examples there, with sample data to try them on."
+              action={<Link to="/generate" className="btn btn--primary"><Plus size={16} aria-hidden /> Describe a task</Link>}
             />
           </div>
         )}

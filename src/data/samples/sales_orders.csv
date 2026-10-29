@@ -1,0 +1,33 @@
+order_id,customer,product,quantity,unit_price,region,status,order_date
+O0001,Priya Lee,Headset,17,120,East,shipped,2026-04-08
+O0002,Amina Anak Jaban,Monitor,9,120,West,delivered,2026-02-28
+O0003,Dayang Abdullah,Headset,20,15,West,shipped,2026-02-11
+O0004,Farah Ismail,Laptop,19,310,South,pending,2026-05-12
+O0005,Nadia Anak Jaban,Headset,13,310,North,pending,2026-01-16
+O0006,Nadia Yusof,Mouse,3,35,West,pending,2026-06-19
+O0007,Chloe Wong,Webcam,11,49,South,pending,2026-05-23
+O0008,Jason Yusof,Laptop,13,49,West,delivered,2026-05-01
+O0009,Priya Chong,Monitor,18,9,North,shipped,2026-06-19
+O0010,Aisyah Anak Jaban,Keyboard,28,120,West,shipped,2026-01-30
+O0011,Aisyah Ismail,Keyboard,12,22,South,pending,2026-04-08
+O0012,Chloe Abdullah,Webcam,1,15,West,pending,2026-04-10
+O0013,Nurul Chong,Laptop,25,49,South,shipped,2026-01-20
+O0014,Bryan Lee,Laptop,14,22,West,shipped,2026-06-04
+O0015,Ethan Lau,Laptop,17,35,East,shipped,2026-03-28
+O0016,Ivan Ng,Monitor,23,310,West,shipped,2026-02-12
+O0017,Zul Yusof,Keyboard,6,15,South,delivered,2026-01-02
+O0018,Aisyah Anak Jaban,Mouse,8,310,North,delivered,2026-01-11
+O0019,Kevin Chong,Laptop,12,49,South,pending,2026-03-24
+O0020,Nadia Lee,Headset,4,15,West,cancelled,2026-06-10
+O0021,Lim Lee,Headset,15,120,South,cancelled,2026-03-16
+O0022,Syafiqah Abdullah,Keyboard,11,310,West,shipped,2026-07-07
+O0023,Ivan Yusof,Keyboard,1,120,North,pending,2026-02-03
+O0024,Dayang Lee,Monitor,5,15,South,cancelled,2026-05-01
+O0025,Daniel Yusof,Webcam,20,120,East,pending,2026-04-17
+O0026,Chloe Chong,Laptop,29,35,South,delivered,2026-05-23
+O0027,Lim Anak Jaban,Headset,24,35,South,pending,2026-06-26
+O0028,Bryan Wong,Laptop,26,9,North,cancelled,2026-05-17
+O0029,Nurul Hassan,Laptop,23,22,South,shipped,2026-03-11
+O0030,Bryan Rahman,Webcam,16,49,North,shipped,2026-05-17
+O0031,Syafiqah Lau,Headset,13,49,South,pending,2026-04-15
+O0032,Lim Anak Jaban,Laptop,22,22,South,pending,2026-07-04

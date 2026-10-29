@@ -1,0 +1,29 @@
+emp_id,name,department,salary,years,city
+E001,Rahim Chong,HR,5200,9,Sibu
+E002,Hana Tan,Sales,5200,15,Bintulu
+E003,Hafiz Tan,Finance,4500,11,Sibu
+E004,Aisyah Anak Jaban,HR,3900,18,Sibu
+E005,Jason Abdullah,Engineering,3500,11,Kuching
+E006,Mei Lee,HR,7500,13,Bintulu
+E007,Syafiqah Tan,Engineering,6100,6,Kuching
+E008,Hana Ng,HR,5200,15,Miri
+E009,Priya Lee,Finance,3500,4,Kuching
+E010,Aisyah Lee,Engineering,2800,6,Bintulu
+E011,Rahim Rahman,Engineering,7500,16,Miri
+E012,Dayang Hassan,Sales,5200,16,Bintulu
+E013,Chloe Hassan,Engineering,5200,16,Bintulu
+E014,Kevin Ng,Sales,3500,5,Bintulu
+E015,Bryan Lee,Sales,2800,13,Bintulu
+E016,Amina Anak Jaban,Finance,9000,9,Sibu
+E017,Ivan Yusof,HR,2800,18,Bintulu
+E018,Aisyah Tan,Sales,3500,2,Miri
+E019,Ivan Abdullah,Engineering,5200,17,Sibu
+E020,Aisyah Tan,Engineering,3900,7,Kuching
+E021,Kevin Lee,Finance,3900,8,Miri
+E022,Syafiqah Rahman,Finance,5200,12,Kuching
+E023,Dayang Chong,HR,4500,12,Bintulu
+E024,Hafiz Ismail,Sales,6100,16,Kuching
+E025,Kevin Rahman,Sales,9000,11,Kuching
+E026,Aisyah Tan,HR,4500,2,Miri
+E027,Nurul Lee,Sales,9000,5,Bintulu
+E028,Daniel Tan,Finance,6100,18,Bintulu

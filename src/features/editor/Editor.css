@@ -323,7 +323,10 @@ body:has(.editor__resize.is-dragging) * { cursor: var(--resize-cursor) !importan
   .editor__canvas { height: 56vh; flex: none; }
   .editor__side { width: 100% !important; border-left: 0; border-top: 1px solid var(--border); }
   .editor__resize { display: none; }
-  .etool { gap: 0.4rem; padding: 0 0.6rem; }
+  .etool { gap: 0.4rem; padding: 0 0.6rem; flex-wrap: wrap; height: auto; min-height: 56px; }
+  /* The Result / How it was done switch gets its own row under the name and buttons. */
+  .etool .segmented { order: 10; width: 100%; margin-bottom: 0.5rem; }
+  .etool .segmented button { flex: 1; justify-content: center; }
   .etool__saved,
   .etool__label,
   .etool__sep,
@@ -407,3 +410,39 @@ body:has(.editor__resize.is-dragging) * { cursor: var(--resize-cursor) !importan
 .check__agent summary { cursor: pointer; font-size: 0.75rem; }
 .check__agent pre { margin: 0.3rem 0 0; padding: 0.5rem; border-radius: var(--r-sm); background: var(--sunken); font: 0.7rem/1.5 var(--font-mono); white-space: pre-wrap; }
 
+
+/* ---------- Result view: the answer first, the canvas one click away ---------- */
+.rv { flex: 1; min-height: 0; overflow-y: auto; background: var(--bg); }
+.rv__inner { display: grid; gap: 1.25rem; width: min(960px, 100%); margin: 0 auto; padding: 1.75rem 1.25rem 3rem; }
+.rv__request { display: grid; gap: 0.25rem; margin: 0; font: 600 1.25rem/1.4 var(--font-display); letter-spacing: -0.01em; }
+.rv__request span { font: 650 0.75rem var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.rv__sec { display: grid; gap: 0.75rem; padding: 1.1rem 1.25rem 1.25rem; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.rv__sec h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; font-size: 1.05rem; }
+.rv__sec h2 small { font-size: 0.8125rem; font-weight: 500; color: var(--text-3); }
+.rv__no { display: inline-grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); font: 650 0.75rem var(--font-mono); transform: translateY(-1px); }
+.rv__table { max-height: 460px; overflow: auto; border: 1px solid var(--border); border-radius: var(--r-sm); }
+.rv__table .check__table th { position: sticky; top: 0; background: var(--surface); }
+.rv__table > .check__hint { padding: 0.5rem; }
+.rv__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.rv__problem { display: flex; gap: 0.7rem; padding: 0.9rem 1rem; border-radius: var(--r-sm); background: var(--danger-soft); color: var(--danger); }
+.rv__problem svg { flex-shrink: 0; margin-top: 2px; }
+.rv__problem div { display: grid; gap: 0.4rem; }
+.rv__problem p { margin: 0; color: var(--text); font-size: 0.875rem; }
+.rv__explain { font-size: 0.875rem; }
+.rv__checks { font-size: 0.8125rem; color: var(--text-2); }
+.rv__checks summary { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+.rv__checks ol { margin: 0.4rem 0 0; padding-left: 1.4rem; display: grid; gap: 0.25rem; }
+.rv__change { display: grid; gap: 0.4rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.rv__change label { font-size: 0.875rem; font-weight: 600; }
+.rv__change-row { display: flex; gap: 0.5rem; }
+.rv__change-row .input { flex: 1; min-width: 0; }
+.rv__reply { display: flex; gap: 0.4rem; align-items: flex-start; margin: 0; font-size: 0.8125rem; color: var(--text-2); }
+.rv__reply svg { flex-shrink: 0; margin-top: 2px; }
+.rv__reply.is-ok svg { color: var(--ok); }
+.rv__link { justify-self: start; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+.rv__link:hover { text-decoration: underline; }
+.etool .segmented { flex-shrink: 0; }
+@media (max-width: 720px) {
+  .rv__inner { padding: 1.1rem 1rem 2rem; }
+  .rv__change-row { flex-direction: column; }
+}

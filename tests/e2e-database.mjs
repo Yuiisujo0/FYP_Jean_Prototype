@@ -51,6 +51,13 @@ const runAndWait = async () => {
   await page.getByText(/Ran 4 steps|stopped the run/).first().waitFor({ timeout: 15000 });
 };
 
+
+/** A workflow opens on its Result; the canvas and its tabs are under "How it was done". */
+const toSteps = async () => {
+  const b = page.getByRole('button', { name: 'How it was done', exact: true });
+  await b.waitFor();
+  if (await b.getAttribute('aria-pressed') !== 'true') await b.click();
+};
 try {
   // 1. Upload data, import a workflow whose Database step appends.
   await page.goto(`${base}/knowledge?tab=data`);
@@ -64,6 +71,7 @@ try {
   await page.getByRole('button', { name: 'Import' }).click();
   await page.locator('.dropzone input[type=file]').setInputFiles(flowFile);
   await page.waitForURL(/\/editor\//);
+  await toSteps();
   await page.waitForTimeout(600);
 
   // 2. The inspector offers the mode as a choice.
@@ -116,6 +124,7 @@ try {
   await page.goto(`${base}/workflows`);
   await page.getByText('Log low scores').first().click();
   await page.waitForURL(/\/editor\//);
+  await toSteps();
   await page.waitForTimeout(600);
   await page.locator('.react-flow__node', { hasText: 'Log them' }).click();
   await page.locator('#cfg-mode').selectOption('replace');

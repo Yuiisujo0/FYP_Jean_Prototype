@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { Button } from '../../components/ui/Button';
 
 const PRESETS = [
-  'Change the filter so the score must be below 40',
   'Add a step that keeps only the first 10 rows',
+  'Sort the result so the newest date comes first',
   'Remove the step that saves to the table',
 ];
 
@@ -43,7 +43,7 @@ export function AskPanel({ busy, onSubmit }: { busy: boolean; onSubmit: (text: s
           className="textarea"
           rows={4}
           value={text}
-          placeholder="Add a step that keeps only the name and score columns…"
+          placeholder="Add a step that keeps only the name and fine columns…"
           onChange={e => setText(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void submit(); } }}
         />

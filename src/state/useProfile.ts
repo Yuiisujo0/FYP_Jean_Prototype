@@ -4,7 +4,8 @@ import type { AvatarColor, Profile } from '../types';
 
 export const AVATAR_COLORS: AvatarColor[] = ['teal', 'blue', 'violet', 'amber', 'rose', 'slate'];
 
-export const DEFAULT_PROFILE: Profile = { name: 'Jean', role: 'Final-year project', email: '', color: 'teal' };
+// Empty until the visitor fills in Profile: the site is public, so nobody is greeted by someone else's name.
+export const DEFAULT_PROFILE: Profile = { name: '', role: '', email: '', color: 'teal' };
 
 export function normaliseProfile(raw: Partial<Profile> | null | undefined): Profile {
   const color = AVATAR_COLORS.includes(raw?.color as AvatarColor) ? (raw!.color as AvatarColor) : DEFAULT_PROFILE.color;

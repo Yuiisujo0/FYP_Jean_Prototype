@@ -1,7 +1,8 @@
-import { AlertCircle, ArrowRight, Check, History, LoaderCircle, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, Database, History, LoaderCircle, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
+import { EXAMPLES } from '../../data/examples';
 import { checkByRunning } from '../../lib/agent';
 import { browserAgentDeps } from '../../lib/agentDeps';
 import { generateFlow } from '../../lib/api';
@@ -9,18 +10,15 @@ import { chainEdges, defaultPosition, orderSteps } from '../../lib/flowGraph';
 import { addHistory, clearHistory, loadHistory, type HistoryItem } from '../../lib/history';
 import { datasetBriefs } from '../../lib/library';
 import { PROVIDER_LABEL } from '../../lib/providerConfig';
+import { addSampleData, SAMPLE_NAMES } from '../../lib/samples';
 import { smallTalk, type SmallTalk } from '../../lib/smalltalk';
 import type { AgentRound, Flow } from '../../types';
+import { useDatasets } from '../../state/useDatasets';
 import { useWorkspace } from '../../state/WorkspaceContext';
 import './GeneratePage.css';
 
 const MAX_LENGTH = 500;
 
-const EXAMPLES = [
-  'Read a CSV of student marks and flag everyone below 50, then save them to the database',
-  'Summarise a document with the local model and prepare a short report',
-  'Fetch records from an API, clean the fields, and export the result',
-];
 
 export function GeneratePage() {
   const { flows, addFlow, notify, ollama } = useWorkspace();
@@ -39,6 +37,22 @@ export function GeneratePage() {
   // A greeting or "what can you do" is answered here, without calling the AI.
   const [chat, setChat] = useState<{ user: string; talk: SmallTalk } | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>(loadHistory);
+  // The examples need the sample datasets; offer them until all are in the Data library.
+  const { items: datasets, refresh: refreshDatasets } = useDatasets();
+  const missingSamples = datasets ? SAMPLE_NAMES.filter(n => !datasets.some(d => d.name === n)).length : 0;
+  const [adding, setAdding] = useState(false);
+  const addSamples = async () => {
+    setAdding(true);
+    try {
+      const added = await addSampleData();
+      await refreshDatasets();
+      notify(`Added ${added} sample ${added === 1 ? 'dataset' : 'datasets'} to your Data library`);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'Could not add the sample data.', { tone: 'error' });
+    } finally {
+      setAdding(false);
+    }
+  };
 
   useEffect(() => () => abort.current?.abort(), []);
 
@@ -98,8 +112,8 @@ export function GeneratePage() {
   return (
     <div className="page gen">
       <header className="gen__head">
-        <h1>What should the workflow do?</h1>
-        <p>Describe the outcome in plain language. jwork picks from its supported operations, arranges them in order and checks the result.</p>
+        <h1>What do you need from your data?</h1>
+        <p>Describe the list or total you need in plain words. jwork works out the steps, tests them on your data, and shows you which rows it kept, left out or could not judge, so you can check the answer before you send it on.</p>
       </header>
 
       <div className="gen__card card">
@@ -111,7 +125,7 @@ export function GeneratePage() {
           value={prompt}
           maxLength={MAX_LENGTH}
           disabled={busy}
-          placeholder="Read a CSV of student scores, find everyone below 50, and prepare a review list…"
+          placeholder={`${EXAMPLES[0]}…`}
           onChange={e => setPrompt(e.target.value)}
           onKeyDown={e => (e.metaKey || e.ctrlKey) && e.key === 'Enter' && run()}
         />
@@ -202,6 +216,12 @@ export function GeneratePage() {
       {!busy && (
         <section className="gen__examples">
           <h2>Or start from an example</h2>
+          {missingSamples > 0 && (
+            <p className="gen__samples">
+              <span>The examples use sample tables (library loans, employees, sales orders, inventory). They are made up and stay in this browser.</span>
+              <Button size="sm" loading={adding} icon={<Database size={15} />} onClick={addSamples}>Add sample data</Button>
+            </p>
+          )}
           <div className="gen__list">
             {EXAMPLES.map(text => (
               <button type="button" key={text} onClick={() => setPrompt(text)}>

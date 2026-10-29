@@ -1,9 +1,11 @@
-import { AlertTriangle, ArrowDownToLine, ArrowLeft, Check, CheckCircle2, Play } from 'lucide-react';
+import { AlertTriangle, ArrowDownToLine, ArrowLeft, Check, CheckCircle2, Play, Table2, Workflow } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
+import { Segmented } from '../../components/ui/Segmented';
 import { timeAgo } from '../../lib/format';
 import { errorCount, warningCount } from '../../lib/validate';
 import type { ValidationIssue } from '../../types';
+import type { View } from './Editor';
 
 interface Props {
   name: string;
@@ -14,9 +16,11 @@ interface Props {
   onCheck: () => void;
   onExport: () => void;
   onRun: () => void;
+  view: View;
+  onView: (view: View) => void;
 }
 
-export function EditorToolbar({ name, onName, updatedAt, issues, running, onCheck, onExport, onRun }: Props) {
+export function EditorToolbar({ name, onName, updatedAt, issues, running, onCheck, onExport, onRun, view, onView }: Props) {
   const errors = errorCount(issues);
   const warnings = warningCount(issues);
   const tone = errors ? 'danger' : warnings ? 'warn' : 'ok';
@@ -30,6 +34,16 @@ export function EditorToolbar({ name, onName, updatedAt, issues, running, onChec
       <span className="etool__saved"><Check size={14} aria-hidden /> Saved {timeAgo(updatedAt).toLowerCase()}</span>
 
       <div className="etool__spacer" />
+
+      <Segmented<View>
+        label="View"
+        value={view}
+        onChange={onView}
+        options={[
+          { value: 'result', label: 'Result', icon: <Table2 size={15} aria-hidden /> },
+          { value: 'steps', label: 'How it was done', icon: <Workflow size={15} aria-hidden /> },
+        ]}
+      />
 
       <button type="button" className={`etool__valid is-${tone}`} onClick={onCheck} title="Open validation">
         {tone === 'ok' ? <CheckCircle2 size={15} aria-hidden /> : <AlertTriangle size={15} aria-hidden />}

@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Lock, Monitor, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, ListChecks, Lock, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -295,12 +295,12 @@ function LandingView({ reveal, onClose }: { reveal: boolean; onClose: () => void
               ))}
             </h1>
             <p className="landing__lead landing__intro" data-exit>
-              <b>A local AI agent for your data workflows.</b>
-              <span className="landing__more"> Describe the job in plain words. It drafts the steps, dry-runs them on your data, fixes its own mistakes, then shows what happened to every row before you approve.</span>
+              <b>Spreadsheet answers you can check before you send them on.</b>
+              <span className="landing__more"> Describe the list or total you need in plain words. An AI writes the steps, a normal program runs them on your data, and you see every row it kept, left out or could not judge before you approve.</span>
             </p>
             <form className="landing__chat landing__intro" data-exit onSubmit={submit}>
               <Sparkles size={20} aria-hidden />
-              <input ref={input} value={prompt} onChange={e => setPrompt(e.target.value)} aria-label="Describe the workflow you want" placeholder="Describe the workflow you want" autoComplete="off" />
+              <input ref={input} value={prompt} onChange={e => setPrompt(e.target.value)} aria-label="Describe the list or total you need" placeholder="Describe the list or total you need" autoComplete="off" />
               <button type="submit" className="landing__send">Generate <ArrowRight size={18} aria-hidden /></button>
             </form>
             <div className="landing__tries landing__intro" data-exit>
@@ -314,8 +314,8 @@ function LandingView({ reveal, onClose }: { reveal: boolean; onClose: () => void
 
         <footer className="landing__bot landing__intro" data-exit>
           <div className="landing__promises">
-            <span><Monitor size={18} aria-hidden />Runs on a local model</span>
-            <span><Lock size={18} aria-hidden />Your rows stay in the browser</span>
+            <span><ListChecks size={18} aria-hidden />Every row accounted for</span>
+            <span><Lock size={18} aria-hidden />Cell values never leave your browser</span>
             <span><Check size={18} aria-hidden />You approve before anything counts</span>
           </div>
           <button type="button" className="landing__cue" onClick={() => go.current()} aria-label="Enter your workspace">

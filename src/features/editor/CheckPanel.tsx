@@ -50,7 +50,7 @@ function PreviewView({ preview, errors }: { preview: PreviewState; errors: numbe
   );
 }
 
-function downloadCsv(result: RunResult, name: string) {
+export function downloadCsv(result: RunResult, name: string) {
   const blob = new Blob(['﻿', toCsv(result)], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

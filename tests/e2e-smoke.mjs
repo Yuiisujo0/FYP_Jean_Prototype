@@ -65,6 +65,13 @@ const saveDialog = async choice => {
   await page.getByRole('button', { name: 'Save', exact: true }).click();
 };
 
+
+/** A workflow opens on its Result; the canvas and its tabs are under "How it was done". */
+const toSteps = async () => {
+  const b = page.getByRole('button', { name: 'How it was done', exact: true });
+  await b.waitFor();
+  if (await b.getAttribute('aria-pressed') !== 'true') await b.click();
+};
 try {
   // 1. Two Excel files chosen at once, empty library: both saved with no dialog.
   await page.goto(`${base}/knowledge?tab=data`);
@@ -89,6 +96,7 @@ try {
   await page.locator('#prompt').fill('Find the students in my student marks with a score below 50 and save them to the database');
   await page.getByRole('button', { name: /build workflow/i }).click();
   await page.waitForURL(/\/editor\//, { timeout: 120000 });
+  await toSteps();
   await page.waitForTimeout(800);
   await shot('2-generated');
   const readStep = page.locator('.react-flow__node', { hasText: 'READ CSV' });

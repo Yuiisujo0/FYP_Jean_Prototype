@@ -3,6 +3,7 @@
  * friendly answer instead of an error or a made-up workflow, and it must not cost an AI call. Matching is deliberately
  * narrow: anything that mentions data work goes to the AI as usual.
  */
+import { EXAMPLES } from '../data/examples.ts';
 
 export interface SmallTalk {
   /** What jwork says back. */
@@ -11,11 +12,7 @@ export interface SmallTalk {
   suggestions: string[];
 }
 
-const SUGGESTIONS = [
-  'Read a CSV of student marks and flag everyone below 50, then save them to the database',
-  'Read employees, keep those in Sales earning over 6000, and sort them by salary',
-  'Read sales orders and total the amount for each customer',
-];
+const SUGGESTIONS = EXAMPLES.slice(0, 3);
 
 const TASK_WORDS = /\b(read|filter|keep|flag|sort|group|total|sum|count|average|join|merge|export|save|csv|excel|xlsx|dataset|rows?|columns?|where|below|above|over|under|highest|lowest|top)\b/i;
 

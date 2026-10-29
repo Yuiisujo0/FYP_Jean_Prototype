@@ -37,6 +37,13 @@ const readStored = () => page.evaluate(() => new Promise((resolve, reject) => {
 
 const panelText = async () => (await page.locator('.editor__panel').innerText()).replace(/\s+/g, ' ');
 
+
+/** A workflow opens on its Result; the canvas and its tabs are under "How it was done". */
+const toSteps = async () => {
+  const b = page.getByRole('button', { name: 'How it was done', exact: true });
+  await b.waitFor();
+  if (await b.getAttribute('aria-pressed') !== 'true') await b.click();
+};
 try {
   // 0. Data.
   await page.goto(`${base}/knowledge?tab=data`);
@@ -62,6 +69,7 @@ try {
   await page.getByText(/Testing it on your data/).waitFor({ timeout: 120000 });
   await shot('r1-agent-testing');
   await page.waitForURL(/\/editor\//, { timeout: 240000 });
+  await toSteps();
   await page.unroute('**/api/generate');
   await page.getByRole('tab', { name: /Check/ }).click();
   await page.getByText('Tested by running it').waitFor();
@@ -108,8 +116,10 @@ try {
   await page.locator('.review__accept textarea').first().fill('Student was absent; marked separately');
   await page.getByRole('button', { name: 'Accept with this reason' }).click();
   for (const box of await page.locator('.review__check input').all()) await box.check();
-  assert.equal(await approveBtn.isDisabled(), false);
+  // The approver's name is not filled in for them (a new browser has no profile name), so approval waits for it.
+  assert.equal(await approveBtn.isDisabled(), true);
   await page.locator('.review__approve input').fill('Jean (test)');
+  assert.equal(await approveBtn.isDisabled(), false);
   await approveBtn.click();
   await page.getByText(/Approved by Jean \(test\)/).waitFor();
   text = await panelText();
@@ -131,6 +141,7 @@ try {
   // 5. The approval is kept with the workflow: after a reload and a new run of the same workflow on the same data,
   //    the result is recognised as the approved one.
   await page.reload();
+  await toSteps();
   await page.getByRole('tab', { name: /Check/ }).click();
   await page.getByRole('button', { name: /Run workflow|Run again/ }).click();
   await page.locator('.review').waitFor({ timeout: 20000 });
