@@ -26,11 +26,17 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 24 runs the TypeScript test files directly, as on the development laptop.
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Unit tests
+        # A failing test stops the deploy, so a broken build never replaces the live site.
+        # Test files that need the private backend/eval/ (not on GitHub) are listed and skipped.
+        run: npm run test:public
 
       - name: Build
         run: npm run build
