@@ -5,6 +5,8 @@
 // The workflow system's own numbers come from tests/agent-eval.ts on the same splits.
 //
 //   node tests/baseline-eval.ts --model gemma3:4b --splits dev,dev2,dev3 --name baseline-gemma3-4b-dev
+//   node tests/baseline-eval.ts --methods code ...     (only the code baseline; default: direct,code)
+// Each answer is scored as exact (same columns and rows) and as right rows (extra columns allowed), as in agent-eval.
 // Holdout splits need --final (run once per frozen configuration).
 //
 // The code baseline is NOT a security sandbox: the generated code runs in a separate Python process with a time limit, in
@@ -24,6 +26,7 @@ const splits = arg('splits', 'dev,dev2,dev3').split(',');
 const name = arg('name', `baseline-${model.replace(/[^a-z0-9]+/gi, '-')}`);
 const limit = Number(arg('limit', '0'));
 const NUM_CTX = Number(arg('ctx', '8192'));
+const methods = arg('methods', 'direct,code').split(',');
 if (splits.some(s => s.startsWith('holdout')) && !process.argv.includes('--final')) {
   throw new Error('Holdout splits are for the final, single run of a frozen configuration. Add --final if that is what this is.');
 }
@@ -53,6 +56,10 @@ async function chat(system: string, user: string, json: boolean) {
 const csv = (t: Table) => [t.columns.join(','), ...t.rows.map(r => t.columns.map(c => (/[",\n]/.test(r[c] ?? '') ? `"${(r[c] ?? '').replaceAll('"', '""')}"` : r[c] ?? '')).join(','))].join('\n');
 const same = (a: { columns: string[]; rows: Record<string, string>[] }, e: { columns: string[]; rows: Record<string, string>[] }) =>
   JSON.stringify(a.columns) === JSON.stringify(e.columns) && JSON.stringify(a.rows) === JSON.stringify(e.rows);
+/** The right rows, with any extra columns the answer kept: the same lenient score agent-eval reports. */
+const rowsRight = (a: { columns: string[]; rows: Record<string, string>[] }, e: { columns: string[]; rows: Record<string, string>[] }) =>
+  same(a, e) || (a.columns.length > 0 && a.columns.every(c => e.columns.includes(c))
+    && JSON.stringify(e.rows.map(r => Object.fromEntries(a.columns.map(c => [c, r[c]])))) === JSON.stringify(a.rows));
 const norm = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 const clean = (o: { columns?: unknown; rows?: unknown }) => {
   if (!Array.isArray(o.columns) || !Array.isArray(o.rows)) return null;
@@ -67,7 +74,7 @@ async function direct(t: Task) {
   const r = await chat(system, `Table (CSV):\n${csv(table)}\n\nQuestion: ${t.request}`, true);
   let parsed: ReturnType<typeof clean> = null;
   try { parsed = clean(JSON.parse(r.text)); } catch { /* unreadable */ }
-  return { ...r, answer: parsed, error: parsed ? undefined : 'unreadable answer' };
+  return { ...r, answer: parsed, error: parsed ? undefined : 'unreadable answer', source: undefined as string | undefined };
 }
 
 /* ---------------- model-written code ---------------- */
@@ -93,41 +100,50 @@ async function code(t: Task) {
     writeFileSync(join(dir, 'solution.py'), source);
     writeFileSync(join(dir, 'runner.py'), RUNNER);
     const run = spawnSync(join(process.cwd(), PY), ['-I', 'runner.py'], { cwd: dir, timeout: 10_000, encoding: 'utf-8', env: { SystemRoot: process.env.SystemRoot ?? '' } });
-    if (run.status !== 0) return { ...r, answer: null, error: (run.error?.message ?? run.stderr ?? 'failed').trim().split('\n').pop()?.slice(0, 160) ?? 'failed' };
+    if (run.status !== 0) return { ...r, source, answer: null, error: (run.error?.message ?? run.stderr ?? 'failed').trim().split('\n').pop()?.slice(0, 160) ?? 'failed' };
     const parsed = clean(JSON.parse(run.stdout));
-    return { ...r, answer: parsed, error: parsed ? undefined : 'unreadable output' };
+    return { ...r, source, answer: parsed, error: parsed ? undefined : 'unreadable output' };
   } catch (e) {
-    return { ...r, answer: null, error: e instanceof Error ? e.message.slice(0, 160) : 'failed' };
+    return { ...r, source, answer: null, error: e instanceof Error ? e.message.slice(0, 160) : 'failed' };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 }
 
 /* ---------------- run ---------------- */
-interface Row { id: string; split: string; direct: Result; code: Result }
-interface Result { correct: boolean; ran: boolean; ms: number; promptTokens: number; outputTokens: number; error?: string }
+interface Row { id: string; split: string; direct?: Result; code?: Result }
+interface Result { correct: boolean; rowsRight: boolean; ran: boolean; rows?: number; ms: number; promptTokens: number; outputTokens: number; error?: string; source?: string }
 const results: Row[] = [];
 console.log(`model=${model} splits=${splits.join(',')} tasks=${tasks.length} num_ctx=${NUM_CTX}`);
 for (const t of tasks) {
   const line: Row = { id: t.id, split: t.split } as Row;
   for (const [key, fn] of [['direct', direct], ['code', code]] as const) {
+    if (!methods.includes(key)) continue;
     let res: Result;
     try {
       const r = await fn(t);
-      res = { ran: !!r.answer, correct: !!r.answer && same(r.answer, t.expected!), ms: r.ms, promptTokens: r.promptTokens, outputTokens: r.outputTokens, error: r.error };
+      res = {
+        ran: !!r.answer, correct: !!r.answer && same(r.answer, t.expected!), rowsRight: !!r.answer && rowsRight(r.answer, t.expected!), rows: r.answer?.rows.length,
+        ms: r.ms, promptTokens: r.promptTokens, outputTokens: r.outputTokens, error: r.error, source: r.source,
+      };
     } catch (e) {
-      res = { ran: false, correct: false, ms: 0, promptTokens: 0, outputTokens: 0, error: e instanceof Error ? e.message.slice(0, 160) : 'failed' };
+      res = { ran: false, correct: false, rowsRight: false, ms: 0, promptTokens: 0, outputTokens: 0, error: e instanceof Error ? e.message.slice(0, 160) : 'failed' };
     }
     line[key] = res;
   }
   results.push(line);
-  console.log(`${t.id.padEnd(4)} direct ${line.direct.correct ? 'OK' : line.direct.ran ? 'wr' : '--'}  code ${line.code.correct ? 'OK' : line.code.ran ? 'wr' : '--'}  ${(line.direct.ms + line.code.ms) / 1000}s`);
+  const mark = (r?: Result) => (!r ? '  ' : r.correct ? 'OK' : r.ran ? 'wr' : '--');
+  console.log(`${t.id.padEnd(4)} direct ${mark(line.direct)}  code ${mark(line.code)}  ${((line.direct?.ms ?? 0) + (line.code?.ms ?? 0)) / 1000}s`);
 }
 
 const pct = (a: number, b: number) => `${a}/${b} (${b ? Math.round((100 * a) / b) : 0}%)`;
 const med = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : 0; };
-const summary = (k: 'direct' | 'code') => `${k}: correct ${pct(results.filter(r => r[k].correct).length, results.length)}, answer produced ${pct(results.filter(r => r[k].ran).length, results.length)}, median ${med(results.map(r => r[k].ms)) / 1000}s, prompt tokens ${med(results.map(r => r[k].promptTokens))}`;
-console.log(`\n${model} on ${splits.join('+')}: ${results.length} tasks\n${summary('direct')}\n${summary('code')}`);
-writeFileSync(`backend/eval/runs/${name}.json`, JSON.stringify({ model, splits, numCtx: NUM_CTX, results }, null, 1));
+const summary = (k: 'direct' | 'code') => {
+  const rs = results.map(r => r[k]!);
+  return `${k}: correct ${pct(rs.filter(r => r.correct).length, rs.length)}, right rows ${pct(rs.filter(r => r.rowsRight).length, rs.length)}, answer produced ${pct(rs.filter(r => r.ran).length, rs.length)}, median ${med(rs.map(r => r.ms)) / 1000}s, prompt tokens ${med(rs.map(r => r.promptTokens))}`;
+};
+console.log(`\n${model} on ${splits.join('+')}: ${results.length} tasks`);
+for (const k of ['direct', 'code'] as const) if (methods.includes(k)) console.log(summary(k));
+writeFileSync(`backend/eval/runs/${name}.json`, JSON.stringify({ model, splits, numCtx: NUM_CTX, methods, date: new Date().toISOString(), results }, null, 1));
 console.log(`saved backend/eval/runs/${name}.json`);
 
