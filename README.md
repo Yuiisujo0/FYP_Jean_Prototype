@@ -70,6 +70,12 @@ Generation needs one of the three AI options. To use the hosted Worker from a lo
 VITE_API_URL=https://jwork-ai.jwork-fyp.workers.dev npm run dev
 ```
 
+In Windows PowerShell:
+
+```powershell
+$env:VITE_API_URL = "https://jwork-ai.jwork-fyp.workers.dev"; npm run dev
+```
+
 There is also a Python reference backend with Ollama (`backend/`, see `backend/README.md`). `npm run dev:all` starts it
 together with the site.
 
