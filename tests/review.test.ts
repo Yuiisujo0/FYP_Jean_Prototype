@@ -10,19 +10,19 @@ import { parseXlsx } from '../src/lib/tables.ts';
 import { asCell, buildReport, buildXlsx, reportSheets } from '../src/lib/xlsx.ts';
 import type { Step } from '../src/types.ts';
 
-const marks: Table = {
-  columns: ['Student', 'Score', 'Status'],
+const results: Table = {
+  columns: ['Trainee', 'Score', 'Status'],
   rows: [
-    { Student: 'Amina', Score: '42', Status: 'late' },
-    { Student: 'Daniel', Score: '67', Status: 'ok' },
-    { Student: 'Mei', Score: '38', Status: 'ok' },
-    { Student: 'Rahim', Score: '', Status: 'ok' },
-    { Student: 'Zul', Score: '90', Status: 'ok' },
+    { Trainee: 'Amina', Score: '42', Status: 'late' },
+    { Trainee: 'Daniel', Score: '67', Status: 'ok' },
+    { Trainee: 'Mei', Score: '38', Status: 'ok' },
+    { Trainee: 'Rahim', Score: '', Status: 'ok' },
+    { Trainee: 'Zul', Score: '90', Status: 'ok' },
   ],
 };
 const ctx: RunContext = {
-  listDatasets: async () => [{ id: 1, name: 'Student marks', filename: 'marks.csv' }],
-  loadDataset: async () => marks,
+  listDatasets: async () => [{ id: 1, name: 'Training results', filename: 'results.csv' }],
+  loadDataset: async () => results,
   saveTable: async () => {},
   fetchJson: async () => [],
 };
@@ -31,9 +31,9 @@ const quiet = () => {};
 const run = (steps: Step[]) => runFlow(steps, ctx, quiet, { dryRun: true });
 
 const FLOW = [
-  step('r', 'READ_CSV', { file: 'marks' }),
+  step('r', 'READ_CSV', { file: 'results' }),
   step('f', 'FILTER', { condition: 'score >= 90 or score < 40' }),
-  step('t', 'TRANSFORM', { operation: 'select columns student, score' }),
+  step('t', 'TRANSFORM', { operation: 'select columns trainee, score' }),
   step('o', 'OUTPUT', { format: 'table' }),
 ];
 
@@ -43,10 +43,10 @@ test('assumptions are read from the steps and the run: source, meaning at the li
   const result = await run(FLOW);
   const texts = assumptionsFor(FLOW, result).map(a => a.text);
   assert.deepEqual(texts, [
-    'The data is the dataset “Student marks” (5 rows).',
+    'The data is the dataset “Training results” (5 rows).',
     'Keep the rows where score is at least 90 or score is less than 40: a row exactly at the limit is kept; a row exactly at the limit is left out.',
     '“score” means the column “Score”.',
-    'Only the columns Student, Score are kept; Status is left out of the result.',
+    'Only the columns Trainee, Score are kept; Status is left out of the result.',
   ]);
 });
 
@@ -74,15 +74,15 @@ test('an approval cannot skip the gate, and it records fingerprints, decisions a
   await assert.rejects(approve(FLOW, result, assumptions, emptyDecisions(), 'Jean'), /cannot be approved yet/);
 
   const d = emptyDecisions();
-  d.accepted[result.exceptions.find(e => e.severity === 'critical')!.id] = 'Absent student, checked by hand';
+  d.accepted[result.exceptions.find(e => e.severity === 'critical')!.id] = 'Absent trainee, checked by hand';
   for (const a of assumptions) d.confirmed[a.id] = true;
   const rec = await approve(FLOW, result, assumptions, d, ' Jean ', 1_700_000_000_000);
   assert.equal(rec.approver, 'Jean');
   assert.equal(rec.workflowHash, await workflowHash(FLOW));
-  assert.equal(rec.inputHash, await tableHash(marks));
+  assert.equal(rec.inputHash, await tableHash(results));
   assert.equal(rec.outputHash, await tableHash(result));
   assert.deepEqual(rec.counts, { total: 5, kept: 2, excluded: 2, flagged: 1 });
-  assert.deepEqual(rec.resolutions.map(x => x.note), ['Absent student, checked by hand']);
+  assert.deepEqual(rec.resolutions.map(x => x.note), ['Absent trainee, checked by hand']);
   assert.equal(rec.assumptions.length, 4);
   assert.deepEqual(readApproval(JSON.parse(JSON.stringify(rec))), rec);
   assert.equal(readApproval({ approvedAt: 'yesterday' }), null);
@@ -94,15 +94,15 @@ test('fingerprints: names and positions do not change the workflow hash; paramet
   assert.equal(await workflowHash(renamed), await workflowHash(FLOW));
   const edited = FLOW.map(s => (s.id === 'f' ? { ...s, config: { condition: 'score >= 80' } } : s));
   assert.notEqual(await workflowHash(edited), await workflowHash(FLOW));
-  assert.notEqual(await tableHash({ ...marks, rows: marks.rows.slice(1) }), await tableHash(marks));
+  assert.notEqual(await tableHash({ ...results, rows: results.rows.slice(1) }), await tableHash(results));
 });
 
 /* ---------------- observations: what may be sent to the AI ---------------- */
 
 test('an observation never contains a data value, only counts, column names and the steps', async () => {
-  const steps = [step('r', 'READ_CSV', { file: 'marks' }), step('f', 'FILTER', { condition: 'status == absent' }), step('o', 'OUTPUT', { format: 'table' })];
+  const steps = [step('r', 'READ_CSV', { file: 'results' }), step('f', 'FILTER', { condition: 'status == absent' }), step('o', 'OUTPUT', { format: 'table' })];
   const obs = observeRun(steps, { result: await run(steps) });
-  for (const row of marks.rows) for (const v of Object.values(row)) {
+  for (const row of results.rows) for (const v of Object.values(row)) {
     if (v && !['ok'].includes(v)) assert.ok(!obs.text.includes(v), `“${v}” leaked into: ${obs.text}`);
   }
   assert.match(obs.text, /40|5 rows in, 0 rows out/);
@@ -116,10 +116,10 @@ test('signals: run errors, empty results, skipped steps and filters that keep ev
     try { outcome = { result: await run(steps) }; } catch (e) { outcome = { error: (e as Error).message }; }
     return observeRun(steps, outcome).signals.map(s => s.kind);
   };
-  assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'marks' }), step('f', 'FILTER', { condition: 'marks < 50' })]), ['run_error']);
-  assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'marks' }), step('f', 'FILTER', { condition: 'status != gone' })]), ['filter_kept_all']);
-  assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'marks' }), step('t', 'TRANSFORM', { operation: 'group by status' })]), ['skipped_step']);
-  assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'marks' }), step('f', 'FILTER', { condition: 'score < 50' })]), ['undecided_rows']);
+  assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'results' }), step('f', 'FILTER', { condition: 'results < 50' })]), ['run_error']);
+  assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'results' }), step('f', 'FILTER', { condition: 'status != gone' })]), ['filter_kept_all']);
+  assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'results' }), step('t', 'TRANSFORM', { operation: 'group by status' })]), ['skipped_step']);
+  assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'results' }), step('f', 'FILTER', { condition: 'score < 50' })]), ['undecided_rows']);
 });
 
 /* ---------------- the agent loop ---------------- */
@@ -138,19 +138,19 @@ test('agent: a clean first run stops at once, and nothing is sent to the AI', as
 });
 
 test('agent: a failing plan is revised from the observation, run again, and the change is described from the steps', async () => {
-  const broken = [step('r', 'READ_CSV', { file: 'marks' }), step('f', 'FILTER', { condition: 'marks < 50' }), step('o', 'OUTPUT', { format: 'table' })];
+  const broken = [step('r', 'READ_CSV', { file: 'results' }), step('f', 'FILTER', { condition: 'results < 50' }), step('o', 'OUTPUT', { format: 'table' })];
   const fixed = [broken[0], { ...broken[1], id: 'new-id', config: { condition: 'score < 50' } }, broken[2]];
   const sent: string[] = [];
   const r = await checkByRunning(broken, { test: testWith, revise: async (_s, observation) => { sent.push(observation); return reply(fixed); } });
   assert.equal(r.status, 'clean');
   assert.deepEqual(r.rounds.map(x => x.outcome), ['revised', 'clean']);
-  assert.match(sent[0], /There is no column “marks”/);
+  assert.match(sent[0], /There is no column “results”/);
   assert.equal(r.steps[1].id, 'f');                                       // the edited step keeps its identity
   assert.match(r.rounds[0].detail, /Changed a step\. It now says: Keeps only the rows where score is less than 50\./);
 });
 
 test('agent: it stops when the model keeps the plan, returns something invalid, or fails; and after the revision limit', async () => {
-  const empty = [step('r', 'READ_CSV', { file: 'marks' }), step('f', 'FILTER', { condition: 'status == absent' }), step('o', 'OUTPUT', { format: 'table' })];
+  const empty = [step('r', 'READ_CSV', { file: 'results' }), step('f', 'FILTER', { condition: 'status == absent' }), step('o', 'OUTPUT', { format: 'table' })];
   let r = await checkByRunning(empty, { test: testWith, revise: async s => reply(s, { unchanged: true }) });
   assert.deepEqual([r.status, r.rounds.map(x => x.outcome)], ['open', ['unchanged']]);
   r = await checkByRunning(empty, { test: testWith, revise: async s => reply(s, { valid: false, issues: [{ level: 'ERROR', message: 'End the workflow with an Output step.' }] }) });
@@ -179,10 +179,10 @@ test('numbers that read back unchanged become numbers; anything else stays text'
 test('the workbook opens with the app’s own Excel reader and holds the result with source rows', async () => {
   const result = await run(FLOW);
   const assumptions = assumptionsFor(FLOW, result);
-  const bytes = buildReport({ flowName: 'Top and bottom', request: 'Students at 90 or more, or below 40', steps: FLOW, result, assumptions, decisions: emptyDecisions(), approval: null, checks: [], madeAt: new Date(0) });
+  const bytes = buildReport({ flowName: 'Top and bottom', request: 'Trainees at 90 or more, or below 40', steps: FLOW, result, assumptions, decisions: emptyDecisions(), approval: null, checks: [], madeAt: new Date(0) });
   const back = parseXlsx(bytes);   // the first sheet with data: the result
-  assert.deepEqual(back.columns, ['Source row', 'Student', 'Score']);
-  assert.deepEqual(back.rows.map(r => [r['Source row'], r.Student, r.Score]), [['3', 'Mei', '38'], ['5', 'Zul', '90']]);
+  assert.deepEqual(back.columns, ['Source row', 'Trainee', 'Score']);
+  assert.deepEqual(back.rows.map(r => [r['Source row'], r.Trainee, r.Score]), [['3', 'Mei', '38'], ['5', 'Zul', '90']]);
 
   const zip = unzipSync(bytes);
   const workbook = strFromU8(zip['xl/workbook.xml']);

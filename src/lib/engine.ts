@@ -130,7 +130,7 @@ export function mixesAndOr(condition: string): boolean {
   return false;
 }
 
-/** A condition in plain words, e.g. `score < 50 and course == CS101` becomes `score is less than 50 and course is CS101`. */
+/** A condition in plain words, e.g. `score < 50 and course == TR101` becomes `score is less than 50 and course is TR101`. */
 export function describeCondition(condition: string): string {
   let tokens: string[];
   try { tokens = tokenize(condition); } catch { return condition; }

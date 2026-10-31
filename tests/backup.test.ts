@@ -14,18 +14,18 @@ const roundTrip = (b: unknown) => JSON.parse(JSON.stringify(b));   // what a dow
 
 test('a backup carries every dataset with its rows, without browser-local ids', async () => {
   const lib = fresh();
-  await lib.upload(csv('marks.csv', 'name,score\nAda,90\nBen,\n'), { name: 'marks' });
+  await lib.upload(csv('results.csv', 'name,score\nAda,90\nBen,\n'), { name: 'results' });
   await lib.upload(csv('courses.csv', 'code\nCS1\n'), { name: 'courses' });
   const b = buildBackup({ profile: { name: 'J' }, flows: [flow], knowledge: [], datasets: await lib.exportAll() });
   assert.equal(b.version, BACKUP_VERSION);
   assert.equal(b.datasets.length, 2);
   assert.deepEqual(Object.keys(b.datasets[0]).sort(), ['columns', 'filename', 'name', 'origin', 'rows']);   // no id or timestamps
-  assert.deepEqual(b.datasets.find(d => d.name === 'marks')!.rows, [{ name: 'Ada', score: '90' }, { name: 'Ben', score: '' }]);
+  assert.deepEqual(b.datasets.find(d => d.name === 'results')!.rows, [{ name: 'Ada', score: '90' }, { name: 'Ben', score: '' }]);
 });
 
 test('restoring into an empty library brings the datasets back exactly', async () => {
   const source = fresh();
-  await source.upload(csv('marks.csv', 'name,score\nAda,90\nBen,\n'), { name: 'marks' });
+  await source.upload(csv('results.csv', 'name,score\nAda,90\nBen,\n'), { name: 'results' });
   const file = roundTrip(buildBackup({ profile: null, flows: [flow], knowledge: [], datasets: await source.exportAll() }));
 
   const parsed = parseBackup(file);
@@ -33,21 +33,21 @@ test('restoring into an empty library brings the datasets back exactly', async (
   assert.equal(await target.importAll(parsed.datasets!), 1);
   const [only] = await target.list();
   const restored = (await target.get(only.id))!;
-  assert.equal(restored.name, 'marks');
+  assert.equal(restored.name, 'results');
   assert.deepEqual(restored.columns, ['name', 'score']);
   assert.deepEqual(restored.rows, [{ name: 'Ada', score: '90' }, { name: 'Ben', score: '' }]);
 });
 
 test('restoring replaces a dataset of the same name (keeping its id) and leaves the others alone', async () => {
   const lib = fresh();
-  const marks = await lib.upload(csv('marks.csv', 'name,score\nOld,1\n'), { name: 'marks' });
+  const results = await lib.upload(csv('results.csv', 'name,score\nOld,1\n'), { name: 'results' });
   const other = await lib.upload(csv('other.csv', 'x\n1\n'), { name: 'other' });
-  const file = roundTrip(buildBackup({ profile: null, flows: [], knowledge: [], datasets: [{ id: 9, name: 'marks', filename: 'marks.csv', columns: ['name', 'score'], rows: [{ name: 'New', score: '2' }], rowCount: 1, createdAt: 0, updatedAt: 0 }] }));
+  const file = roundTrip(buildBackup({ profile: null, flows: [], knowledge: [], datasets: [{ id: 9, name: 'results', filename: 'results.csv', columns: ['name', 'score'], rows: [{ name: 'New', score: '2' }], rowCount: 1, createdAt: 0, updatedAt: 0 }] }));
   await lib.importAll(parseBackup(file).datasets!);
 
   const names = (await lib.list()).map(d => d.name).sort();
-  assert.deepEqual(names, ['marks', 'other']);
-  assert.equal((await lib.get(marks.id))!.rows[0].name, 'New');   // same id, new contents, so workflows keep working
+  assert.deepEqual(names, ['other', 'results']);
+  assert.equal((await lib.get(results.id))!.rows[0].name, 'New');   // same id, new contents, so workflows keep working
   assert.equal((await lib.get(other.id))!.rows[0].x, '1');
 });
 
@@ -82,14 +82,14 @@ test('files that are not backups are refused with a readable message', () => {
 
 test('a saved result stays a result after a backup and restore, and an upload stays an upload', async () => {
   const source = fresh();
-  await source.upload(csv('marks.csv', 'name\nAda\n'), { name: 'marks' });
+  await source.upload(csv('results.csv', 'name\nAda\n'), { name: 'results' });
   await source.saveResult('low', { columns: ['name'], rows: [{ name: 'Ada' }] }, 'replace');
   const parsed = parseBackup(roundTrip(buildBackup({ profile: null, flows: [], knowledge: [], datasets: await source.exportAll() })));
 
   const target = fresh();
   await target.importAll(parsed.datasets!);
   const origins = Object.fromEntries((await target.list()).map(d => [d.name, d.origin]));
-  assert.deepEqual(origins, { marks: 'upload', low: 'result' });
+  assert.deepEqual(origins, { results: 'upload', low: 'result' });
 
   // a backup made before origins existed restores as uploads
   const old = parseBackup({ format: 'jwork.workspace', flows: [], datasets: [{ name: 'x', columns: ['a'], rows: [] }] });

@@ -56,7 +56,7 @@ for path in sorted([*(PROJECT / "sample_data").glob("*.xlsx"), FIXTURES / "edge.
 
 # ---- CSV text cases ----
 csv_inputs = {
-    "sample": ((PROJECT / "sample_data" / "student_marks.csv").read_text(encoding="utf-8"), ","),
+    "sample": ((PROJECT / "sample_data" / "training_results.csv").read_text(encoding="utf-8"), ","),
     "bom_quotes_newlines": ('﻿name,notes,,\r\n"Ali, Jr.","line one\nline two",x,\r\n"say ""hi""",plain,,\r\n\r\n   ,  ,,\r\nshort\r\n', ","),
     "duplicate_headers": ("a,A,b\n1,2,3\n", ","),
     "empty": ("", ","),

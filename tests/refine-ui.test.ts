@@ -8,7 +8,7 @@ let n = 0;
 const step = (type: string, config: Record<string, string>, extra: Partial<Step> = {}): Step =>
   ({ id: `id${++n}`, type, name: type, description: '', config, position: { x: n * 10, y: 5 }, ...extra });
 
-const read = () => step('READ_CSV', { file: 'marks', delimiter: ',' });
+const read = () => step('READ_CSV', { file: 'results', delimiter: ',' });
 const filter = (c: string) => step('FILTER', { condition: c });
 const out = () => step('OUTPUT', { format: 'table' });
 

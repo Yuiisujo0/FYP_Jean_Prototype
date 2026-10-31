@@ -34,7 +34,7 @@ const joinsLookup = (t: TaskFile['tasks'][number], lookup: string) =>
   t.steps.some(s => s.type === 'TRANSFORM' && new RegExp(`^join\\s+${lookup}\\b`, 'i').test(s.config.operation ?? ''));
 
 // A misspelled join key only matters to workflows that join on it.
-const JOIN_LOOKUP: Record<string, string> = { student_marks: 'courses', inventory: 'suppliers' };
+const JOIN_LOOKUP: Record<string, string> = { training_results: 'courses', inventory: 'suppliers' };
 
 for (const v of variants) {
   const swap = { name: v.dataset, table: { columns: v.columns, rows: v.rows } };

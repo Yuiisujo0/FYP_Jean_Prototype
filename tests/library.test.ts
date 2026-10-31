@@ -17,8 +17,8 @@ const fresh = () => { let t = 1000; return createLibrary(memoryStore(), () => ++
 
 test('an Excel file is stored with blank cells, skipped blank rows and ISO dates', async () => {
   const lib = fresh();
-  const d = await lib.upload(sample('student_marks.xlsx'), { name: 'marks' });
-  assert.deepEqual(d.columns, ['student_id', 'name', 'course', 'score', 'attendance_pct', 'submitted']);
+  const d = await lib.upload(sample('training_results.xlsx'), { name: 'results' });
+  assert.deepEqual(d.columns, ['trainee_id', 'name', 'course', 'score', 'attendance_pct', 'submitted']);
   assert.equal(d.rowCount, 40);
   assert.equal(d.rows[6].score, '');
   assert.match(d.rows[0].score, /^\d+$/);
@@ -27,10 +27,10 @@ test('an Excel file is stored with blank cells, skipped blank rows and ISO dates
 
 test('inspect reports matches without saving', async () => {
   const lib = fresh();
-  await lib.upload(sample('student_marks.xlsx'), { name: 'student_marks' });
-  const info = await lib.inspect(sample('student_marks_next_semester.xlsx'));
+  await lib.upload(sample('training_results.xlsx'), { name: 'training_results' });
+  const info = await lib.inspect(sample('training_results_next_quarter.xlsx'));
   assert.equal(info.rowCount, 30);
-  assert.equal(info.sheet, 'Marks');
+  assert.equal(info.sheet, 'Results');
   assert.equal(info.preview.length, 5);
   assert.equal(info.matches.length, 1);
   assert.deepEqual([info.matches[0].sameColumns, info.matches[0].sameName], [true, false]);
@@ -40,15 +40,15 @@ test('inspect reports matches without saving', async () => {
 
 test('the same file name counts as the same name', async () => {
   const lib = fresh();
-  await lib.upload(sample('student_marks.xlsx'), { name: 'student_marks' });
-  const info = await lib.inspect(sample('student_marks.xlsx'));
+  await lib.upload(sample('training_results.xlsx'), { name: 'training_results' });
+  const info = await lib.inspect(sample('training_results.xlsx'));
   assert.equal(info.matches[0].sameName, true);
 });
 
 test('add rows works even when the headers are typed differently, and keeps the dataset’s own column names', async () => {
   const lib = fresh();
-  const target = await lib.upload(sample('student_marks.xlsx'), { name: 'marks' });
-  const merged = await lib.upload(sample('student_marks_other_headers.xlsx'), { mode: 'append', targetId: target.id });
+  const target = await lib.upload(sample('training_results.xlsx'), { name: 'results' });
+  const merged = await lib.upload(sample('training_results_other_headers.xlsx'), { mode: 'append', targetId: target.id });
   assert.equal(merged.rowCount, 48);
   assert.equal(merged.rows.length, 48);
   assert.deepEqual(merged.columns, target.columns);
@@ -57,16 +57,16 @@ test('add rows works even when the headers are typed differently, and keeps the 
 
 test('add rows refuses different columns, and a missing target', async () => {
   const lib = fresh();
-  const target = await lib.upload(sample('student_marks.xlsx'), { name: 'marks' });
+  const target = await lib.upload(sample('training_results.xlsx'), { name: 'results' });
   await assert.rejects(lib.upload(sample('courses.xlsx'), { mode: 'append', targetId: target.id }), /columns do not match/);
   await assert.rejects(lib.upload(sample('courses.xlsx'), { mode: 'append', targetId: 999 }), /not found/);
 });
 
 test('new refuses an existing name; replace swaps the data and keeps the id', async () => {
   const lib = fresh();
-  const first = await lib.upload(sample('student_marks.xlsx'), { name: 'marks' });
-  await assert.rejects(lib.upload(sample('courses.xlsx'), { name: 'Marks', mode: 'new' }), /already exists/);
-  const replaced = await lib.upload(sample('student_marks_next_semester.xlsx'), { name: 'marks', mode: 'replace' });
+  const first = await lib.upload(sample('training_results.xlsx'), { name: 'results' });
+  await assert.rejects(lib.upload(sample('courses.xlsx'), { name: 'Results', mode: 'new' }), /already exists/);
+  const replaced = await lib.upload(sample('training_results_next_quarter.xlsx'), { name: 'results', mode: 'replace' });
   assert.equal(replaced.id, first.id);
   assert.equal(replaced.rowCount, 30);
   assert.equal(replaced.createdAt, first.createdAt);

@@ -78,8 +78,8 @@ test('and / or without brackets: the or-terms on one column are bracketed (F5, F
   const a = await replay('F5', [R('sales_orders'), ['FILTER', { condition: 'region == West or region == North and quantity > 10' }], OUT]);
   assert.equal(a.condition, '(region == West or region == North) and quantity > 10');
   assert.ok(a.exact);
-  const b = await replay('F7', [R('student_marks'), ['FILTER', { condition: 'course == CS102 or course == MATH201 and score between 60 and 80' }], OUT]);
-  assert.equal(b.condition, '(course == CS102 or course == MATH201) and score between 60 and 80');
+  const b = await replay('F7', [R('training_results'), ['FILTER', { condition: 'course == TR102 or course == SAFE201 and score between 60 and 80' }], OUT]);
+  assert.equal(b.condition, '(course == TR102 or course == SAFE201) and score between 60 and 80');
   assert.ok(b.exact);
 });
 

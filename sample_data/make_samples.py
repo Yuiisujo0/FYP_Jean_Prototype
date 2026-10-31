@@ -15,10 +15,10 @@ OUT = Path(__file__).parent
 FIRST = ["Amina", "Daniel", "Mei", "Rahim", "Siti", "Jason", "Nurul", "Kevin", "Aisyah", "Ivan", "Farah", "Lim",
          "Hafiz", "Chloe", "Zul", "Priya", "Marcus", "Dayang", "Alvin", "Syafiqah", "Ethan", "Nadia", "Bryan", "Hana"]
 LAST = ["Abdullah", "Tan", "Wong", "Ismail", "Lee", "Anak Jaban", "Hassan", "Ng", "Yusof", "Chong", "Rahman", "Lau"]
-COURSES = ["CS101", "CS102", "MATH201"]
+COURSES = ["TR101", "TR102", "SAFE201"]
 
 
-def students(seed: int, count: int, start_id: int, semester_start: date):
+def trainees(seed: int, count: int, start_id: int, period_start: date):
     rnd = random.Random(seed)
     for i in range(count):
         score = rnd.choice([rnd.randint(20, 49), rnd.randint(50, 95), rnd.randint(50, 95)])
@@ -28,7 +28,7 @@ def students(seed: int, count: int, start_id: int, semester_start: date):
             rnd.choice(COURSES),
             score,
             rnd.randint(55, 100),
-            semester_start + timedelta(days=rnd.randint(0, 90)),
+            period_start + timedelta(days=rnd.randint(0, 90)),
         ]
 
 
@@ -49,36 +49,36 @@ def write(path: Path, header: list[str], rows: list[list], sheet: str = "Sheet1"
     print(f"{path.name}: {len(rows)} rows")
 
 
-HEADER = ["student_id", "name", "course", "score", "attendance_pct", "submitted"]
+HEADER = ["trainee_id", "name", "course", "score", "attendance_pct", "submitted"]
 
-# 1. The main dataset. One student has no score (absent), and there is a blank row in the middle.
-main = list(students(seed=1, count=40, start_id=1, semester_start=date(2026, 2, 1)))
+# 1. The main dataset. One trainee has no score (absent), and there is a blank row in the middle.
+main = list(trainees(seed=1, count=40, start_id=1, period_start=date(2026, 2, 1)))
 main[6][3] = None
-write(OUT / "student_marks.xlsx", HEADER, main, sheet="Marks", blank_after=19)
+write(OUT / "training_results.xlsx", HEADER, main, sheet="Results", blank_after=19)
 
-# 2. Next semester: same columns, different students. Try it as "Replace" (or "Save as new").
-write(OUT / "student_marks_next_semester.xlsx", HEADER, list(students(seed=2, count=30, start_id=101, semester_start=date(2026, 8, 1))), sheet="Marks")
+# 2. Next quarter: same columns, different trainees. Try it as "Replace" (or "Save as new").
+write(OUT / "training_results_next_quarter.xlsx", HEADER, list(trainees(seed=2, count=30, start_id=101, period_start=date(2026, 8, 1))), sheet="Results")
 
 # 3. A few late submissions: same columns. Try it as "Add rows".
-write(OUT / "student_marks_late_submissions.xlsx", HEADER, list(students(seed=3, count=6, start_id=201, semester_start=date(2026, 3, 1))), sheet="Late")
+write(OUT / "training_results_late_submissions.xlsx", HEADER, list(trainees(seed=3, count=6, start_id=201, period_start=date(2026, 3, 1))), sheet="Late")
 
 # 4. Same data, but headers written the way people type them. Matching ignores case and punctuation.
-write(OUT / "student_marks_other_headers.xlsx",
-      ["Student ID", "Name", "Course", "Score", "Attendance Pct", "Submitted"],
-      list(students(seed=4, count=8, start_id=301, semester_start=date(2026, 4, 1))), sheet="Export")
+write(OUT / "training_results_other_headers.xlsx",
+      ["Trainee ID", "Name", "Course", "Score", "Attendance Pct", "Submitted"],
+      list(trainees(seed=4, count=8, start_id=301, period_start=date(2026, 4, 1))), sheet="Export")
 
 # 5. A different kind of data: should be offered as a new dataset, not as an update.
-write(OUT / "courses.xlsx", ["course_code", "course_name", "lecturer", "credits"], [
-    ["CS101", "Introduction to Programming", "Dr. Aminah", 4],
-    ["CS102", "Data Structures", "Dr. Wong", 4],
-    ["MATH201", "Discrete Mathematics", "Dr. Ismail", 3],
+write(OUT / "courses.xlsx", ["course_code", "course_name", "trainer", "hours"], [
+    ["TR101", "Introduction to Compliance", "Ms Aminah", 4],
+    ["TR102", "Safety Procedures", "Mr Wong", 4],
+    ["SAFE201", "Discrete Compliance", "Mr Ismail", 3],
 ], sheet="Courses")
 
 # 6. The same main data as CSV, for comparison.
 import csv
-with open(OUT / "student_marks.csv", "w", newline="", encoding="utf-8") as f:
+with open(OUT / "training_results.csv", "w", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
     w.writerow(HEADER)
     for r in main:
         w.writerow(["" if v is None else v for v in r])
-print("student_marks.csv:", len(main), "rows")
+print("training_results.csv:", len(main), "rows")

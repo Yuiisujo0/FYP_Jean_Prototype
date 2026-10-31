@@ -66,13 +66,13 @@ HEADER = (
 many_columns = [f"col_{i}" for i in range(15)]
 dataset_variants = {
     "none": None,
-    "one": [{"name": "student_marks", "columns": ["student_id", "name", "course", "score"]}],
+    "one": [{"name": "training_results", "columns": ["trainee_id", "name", "course", "score"]}],
     "many": [{"name": f"data_{i}", "columns": many_columns if i == 0 else ["a", "b"]} for i in range(8)],
 }
 prompts = [t["request"] for t in tasks["tasks"] if t["split"] in ("dev", "test", "holdout")][:30] + [
     "Fetch posts from an API and summarise them with the model",
     "zzzz qqqq",
-    "Read a CSV of student marks, keep those below 50, and save them to the database",
+    "Read a CSV of trainee results, keep those below 50, and save them to the database",
 ]
 
 prompt_cases = []
@@ -89,8 +89,8 @@ for prompt in prompts:
                              "retrievedIds": [e.id for e in retrieved], "messages": messages})
 
 drafts = [
-    ("Read a CSV of student marks and keep the failing ones", [
-        {"type": "READ_CSV", "file": " marks.csv ", "delimiter": ""}, {"type": "FILTER", "condition": "score < 50"},
+    ("Read a CSV of trainee results and keep the failing ones", [
+        {"type": "READ_CSV", "file": " results.csv ", "delimiter": ""}, {"type": "FILTER", "condition": "score < 50"},
         {"type": "TRANSFORM", "operation": "Select columns Name, Score"}, {"type": "DATABASE", "table": ""}, {"type": "OUTPUT", "format": "table"}]),
     ("Fetch data from an API and then do several unusual things with it so that the title gets cut", [
         {"type": "HTTP_REQUEST", "method": "get", "url": "https://api.example.com/a/very/long/path/that/should/be/shortened/in/the/name"},
@@ -98,11 +98,11 @@ drafts = [
     ("an unknown step", [{"type": "MYSTERY", "x": "y"}, {"type": "OUTPUT", "format": ""}]),
     ("input first", [{"type": "INPUT", "source": "manual"}, {"type": "READ_FILE", "file": "notes.txt"}, {"type": "OUTPUT", "format": "table"}]),
     ("filter long condition", [{"type": "READ_CSV", "file": "x", "delimiter": ";"},
-                               {"type": "FILTER", "condition": "course == CS101 and attendance_pct < 70 and score >= 50 or name contains Lee"},
+                               {"type": "FILTER", "condition": "course == TR101 and attendance_pct < 70 and score >= 50 or name contains Lee"},
                                {"type": "OUTPUT", "format": "table"}]),
-    ("Read marks, flag everyone below 50, then save them to the database", [
-        {"type": "READ_CSV", "file": "student_marks", "delimiter": ","}, {"type": "FILTER", "condition": "score < 50"},
-        {"type": "DATABASE", "table": "failed_students"}]),
+    ("Read results, flag everyone below 50, then save them to the database", [
+        {"type": "READ_CSV", "file": "training_results", "delimiter": ","}, {"type": "FILTER", "condition": "score < 50"},
+        {"type": "DATABASE", "table": "failed_trainees"}]),
 ]
 build_cases = []
 for prompt, steps in drafts:
@@ -122,7 +122,7 @@ refine_cases = []
 for task_id, instruction in [
     ("S1", "Change the score limit to 40"), ("S2", "Add a step that keeps only the name and score columns"),
     ("O7", "Remove the step that saves to the database"), ("E3", "Sort the result by salary, highest first"),
-    ("U1", "Make this simpler"), ("S3", "Also exclude students from MATH201"),
+    ("U1", "Make this simpler"), ("S3", "Also exclude trainees from SAFE201"),
 ]:
     for label, datasets in dataset_variants.items():
         refine_cases.append({

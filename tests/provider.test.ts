@@ -7,7 +7,7 @@ import { generateWorkflow } from '../src/pipeline/generate.ts';
 import { cleanBaseUrl, openAiCompatible } from '../src/pipeline/openaiAi.ts';
 import { ollamaApiBase, providerProblem, DEFAULT_PROVIDER } from '../src/lib/providerConfig.ts';
 
-const GOOD = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'marks', delimiter: ',' }, { type: 'FILTER', condition: 'score < 50' }, { type: 'OUTPUT', format: 'table' }] });
+const GOOD = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'results', delimiter: ',' }, { type: 'FILTER', condition: 'score < 50' }, { type: 'OUTPUT', format: 'table' }] });
 const completion = (content: string) => new Response(JSON.stringify({ choices: [{ message: { content } }], usage: { prompt_tokens: 10, completion_tokens: 5 } }), { status: 200 });
 
 function fake(replies: (Response | Error)[]) {
@@ -57,12 +57,12 @@ test('an error status carries the provider message', async () => {
 
 test('the generate pipeline works end to end through the adapter', async () => {
   const { calls, fetchImpl } = fake([completion(GOOD)]);
-  const r = await generateWorkflow('Find students who scored below 50', { ai: openAiCompatible({ baseUrl: 'http://localhost:11434/v1', fetchImpl }), models: ['qwen2.5:7b'], datasets: [{ name: 'marks', columns: ['name', 'score'] }] });
+  const r = await generateWorkflow('Find trainees who scored below 50', { ai: openAiCompatible({ baseUrl: 'http://localhost:11434/v1', fetchImpl }), models: ['qwen2.5:7b'], datasets: [{ name: 'results', columns: ['name', 'score'] }] });
   assert.equal(r.valid, true);
   assert.deepEqual(r.flow.nodes.map(n => n.type), ['READ_CSV', 'FILTER', 'OUTPUT']);
   assert.equal(r.model, 'qwen2.5:7b');
   // privacy: only names and column names, in the prompt that left the browser
-  assert.match(JSON.stringify(calls[0].body.messages), /marks/);
+  assert.match(JSON.stringify(calls[0].body.messages), /results/);
 });
 
 test('an unreachable server or a rejected key becomes ProviderUnavailable; a 429 reads as quota', async () => {

@@ -600,12 +600,12 @@ export const contract: Contract = {
   {
    "id": "S1",
    "title": "Filter rows below a number",
-   "request": "List the students who scored below 50",
+   "request": "List the trainees who scored below 50",
    "steps": [
     {
      "type": "READ_CSV",
      "config": {
-      "file": "student_marks",
+      "file": "training_results",
       "delimiter": ","
      }
     },
@@ -627,12 +627,12 @@ export const contract: Contract = {
   {
    "id": "S2",
    "title": "Filter, keep some columns, sort",
-   "request": "Show only the name and score of students with 80 or more, highest first",
+   "request": "Show only the name and score of trainees with 80 or more, highest first",
    "steps": [
     {
      "type": "READ_CSV",
      "config": {
-      "file": "student_marks",
+      "file": "training_results",
       "delimiter": ","
      }
     },
@@ -666,19 +666,19 @@ export const contract: Contract = {
   {
    "id": "S3",
    "title": "Filter on two conditions and save to a table",
-   "request": "Find CS101 students with attendance under 70 and save them to a table called at_risk",
+   "request": "Find TR101 trainees with attendance under 70 and save them to a table called at_risk",
    "steps": [
     {
      "type": "READ_CSV",
      "config": {
-      "file": "student_marks",
+      "file": "training_results",
       "delimiter": ","
      }
     },
     {
      "type": "FILTER",
      "config": {
-      "condition": "course == CS101 and attendance_pct < 70"
+      "condition": "course == TR101 and attendance_pct < 70"
      }
     },
     {
@@ -699,25 +699,25 @@ export const contract: Contract = {
   {
    "id": "S6",
    "title": "Rename a column and keep two columns",
-   "request": "Rename the score column to marks and keep only the name and marks",
+   "request": "Rename the score column to results and keep only the name and results",
    "steps": [
     {
      "type": "READ_CSV",
      "config": {
-      "file": "student_marks",
+      "file": "training_results",
       "delimiter": ","
      }
     },
     {
      "type": "TRANSFORM",
      "config": {
-      "operation": "rename score to marks"
+      "operation": "rename score to results"
      }
     },
     {
      "type": "TRANSFORM",
      "config": {
-      "operation": "select columns name, marks"
+      "operation": "select columns name, results"
      }
     },
     {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, test } from 'node:test';
 import { handle, parseBody, resetRateLimit, type Env } from '../worker/src/index.ts';
 
-const GOOD = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'marks', delimiter: ',' }, { type: 'FILTER', condition: 'score < 50' }, { type: 'OUTPUT', format: 'table' }] });
+const GOOD = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'results', delimiter: ',' }, { type: 'FILTER', condition: 'score < 50' }, { type: 'OUTPUT', format: 'table' }] });
 const ok = { response: GOOD, usage: { prompt_tokens: 700, completion_tokens: 50, neurons: 5 } };
 
 function env(script: (unknown | Error)[] = [ok], extra: Partial<Env> = {}): Env & { calls: { model: string; inputs: any }[] } {
@@ -42,7 +42,7 @@ test('CORS: allowed origins pass, others are refused, preflight is answered', as
 
 test('a good request returns the same shape as the Python backend', async () => {
   const e = env();
-  const res = await handle(post({ prompt: 'Which students scored below 50?', datasets: [{ name: 'marks', columns: ['name', 'score'] }] }), e);
+  const res = await handle(post({ prompt: 'Which trainees scored below 50?', datasets: [{ name: 'results', columns: ['name', 'score'] }] }), e);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('Access-Control-Allow-Origin'), 'https://app.test');
   const body = await res.json() as any;
@@ -51,7 +51,7 @@ test('a good request returns the same shape as the Python backend', async () => 
   assert.equal(body.model, '@cf/a');
   assert.deepEqual(Object.keys(body.attempts[0]).sort(), ['errors', 'evalTokens', 'ms', 'note', 'warnings']);
   assert.deepEqual(body.flow.nodes.map((n: any) => n.type), ['READ_CSV', 'FILTER', 'OUTPUT']);
-  assert.match(e.calls[0].inputs.messages[0].content, /- marks: columns name, score/);
+  assert.match(e.calls[0].inputs.messages[0].content, /- results: columns name, score/);
 });
 
 test('bad requests are refused with a readable message and never reach the AI', async () => {

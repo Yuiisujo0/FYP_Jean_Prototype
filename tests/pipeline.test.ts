@@ -52,8 +52,8 @@ test('the contract carries the schema, catalogue, example and library', () => {
 
 /* ---------------- the generation loop, with a fake AI ---------------- */
 
-const GOOD = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'marks', delimiter: ',' }, { type: 'FILTER', condition: 'score < 50' }, { type: 'OUTPUT', format: 'table' }] });
-const BLANK_FILTER = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'marks', delimiter: ',' }, { type: 'FILTER', condition: '' }, { type: 'OUTPUT', format: 'table' }] });
+const GOOD = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'results', delimiter: ',' }, { type: 'FILTER', condition: 'score < 50' }, { type: 'OUTPUT', format: 'table' }] });
+const BLANK_FILTER = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'results', delimiter: ',' }, { type: 'FILTER', condition: '' }, { type: 'OUTPUT', format: 'table' }] });
 const reply = (content: string, neurons = 5) => ({ response: content, usage: { prompt_tokens: 700, completion_tokens: 50, neurons } });
 
 /** A fake AI that answers from a script: each item is a result, or an Error to throw. */
@@ -73,7 +73,7 @@ const MODELS = ['@cf/primary', '@cf/fallback'];
 
 test('a good first answer is used as is', async () => {
   const ai = fakeAi([reply(GOOD)]);
-  const r = await generateWorkflow('Which students scored below 50?', { ai, models: MODELS });
+  const r = await generateWorkflow('Which trainees scored below 50?', { ai, models: MODELS });
   assert.equal(r.valid, true);
   assert.equal(r.attempts.length, 1);
   assert.equal(r.model, '@cf/primary');
@@ -95,8 +95,8 @@ test('validation errors are sent back and the model repairs, hotter each time', 
 });
 
 test('a workflow without an OUTPUT step gets one, with no repair call, and keeps its last step', async () => {
-  const ai = fakeAi([reply(JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'marks', delimiter: ',' }, { type: 'DATABASE', table: 'failed' }] }))]);
-  const r = await generateWorkflow('save the marks', { ai, models: MODELS });
+  const ai = fakeAi([reply(JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'results', delimiter: ',' }, { type: 'DATABASE', table: 'failed' }] }))]);
+  const r = await generateWorkflow('save the results', { ai, models: MODELS });
   assert.equal(r.attempts.length, 1);
   assert.equal(r.valid, true);
   assert.deepEqual(r.flow.nodes.map(n => n.type), ['READ_CSV', 'DATABASE', 'OUTPUT']);
@@ -142,7 +142,7 @@ test('both Workers AI reply shapes are understood', () => {
 
 test('datasets reach the prompt as names and columns only', async () => {
   const ai = fakeAi([reply(GOOD)]);
-  await generateWorkflow('x', { ai, models: MODELS, datasets: [{ name: 'marks', columns: ['name', 'score'] }] });
+  await generateWorkflow('x', { ai, models: MODELS, datasets: [{ name: 'results', columns: ['name', 'score'] }] });
   const system = ai.calls[0].inputs.messages[0].content as string;
-  assert.match(system, /- marks: columns name, score/);
+  assert.match(system, /- results: columns name, score/);
 });

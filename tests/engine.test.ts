@@ -4,17 +4,17 @@ import { test } from 'node:test';
 import { compileCondition, mixesAndOr, runFlow, toCsv, type RunContext, type Table } from '../src/lib/engine.ts';
 import type { Step } from '../src/types.ts';
 
-const marks: Table = {
-  columns: ['Student', 'Score', 'Status'],
+const results: Table = {
+  columns: ['Trainee', 'Score', 'Status'],
   rows: [
-    { Student: 'Amina', Score: '42', Status: 'late' },
-    { Student: 'Daniel', Score: '67', Status: 'ok' },
-    { Student: 'Mei', Score: '38', Status: 'ok' },
-    { Student: 'Rahim', Score: '', Status: 'ok' },
+    { Trainee: 'Amina', Score: '42', Status: 'late' },
+    { Trainee: 'Daniel', Score: '67', Status: 'ok' },
+    { Trainee: 'Mei', Score: '38', Status: 'ok' },
+    { Trainee: 'Rahim', Score: '', Status: 'ok' },
   ],
 };
-const cols = marks.columns;
-const names = (cond: string) => marks.rows.filter(compileCondition(cond, cols)).map(r => r.Student);
+const cols = results.columns;
+const names = (cond: string) => results.rows.filter(compileCondition(cond, cols)).map(r => r.Trainee);
 
 test('numeric comparison, and columns are matched without regard to case', () => {
   assert.deepEqual(names('score < 50'), ['Amina', 'Mei']);
@@ -33,7 +33,7 @@ test('and / or / brackets / contains / quoted strings', () => {
 });
 
 test('an unknown column is an error that lists the real columns', () => {
-  assert.throws(() => compileCondition('marks < 50', cols), /no column “marks”.*Student, Score, Status/);
+  assert.throws(() => compileCondition('results < 50', cols), /no column “results”.*Trainee, Score, Status/);
 });
 
 test('code is not evaluated', () => {
@@ -51,8 +51,8 @@ const step = (type: string, config: Record<string, string>, name = type): Step =
 
 function context(saved: Record<string, Table> = {}): RunContext {
   return {
-    listDatasets: async () => [{ id: 1, name: 'Student marks', filename: 'marks.csv' }],
-    loadDataset: async () => marks,
+    listDatasets: async () => [{ id: 1, name: 'Training results', filename: 'results.csv' }],
+    loadDataset: async () => results,
     saveTable: async (name, t) => { saved[name] = t; },
     fetchJson: async () => [{ id: 1, tag: 'a' }, { id: 2 }],
   };
@@ -62,17 +62,17 @@ const quiet = () => {};
 test('read, filter, save, output on stored data', async () => {
   const saved: Record<string, Table> = {};
   const result = await runFlow([
-    step('READ_CSV', { file: 'marks.csv' }),
+    step('READ_CSV', { file: 'results.csv' }),
     step('FILTER', { condition: 'score < 50' }),
     step('DATABASE', { table: 'low_scores' }),
     step('OUTPUT', { format: 'table' }),
   ], context(saved), quiet);
-  assert.deepEqual(result.rows.map(r => r.Student), ['Amina', 'Mei']);
+  assert.deepEqual(result.rows.map(r => r.Trainee), ['Amina', 'Mei']);
   assert.equal(saved.low_scores.rows.length, 2);
 });
 
 test('a dataset is found by name or by file name, with or without extension', async () => {
-  for (const file of ['Student marks', 'student_marks', 'marks.csv', 'marks']) {
+  for (const file of ['Training results', 'training_results', 'results.csv', 'results']) {
     const r = await runFlow([step('READ_CSV', { file })], context(), quiet);
     assert.equal(r.rows.length, 4, file);
   }
@@ -89,24 +89,24 @@ test('a missing dataset stops the run with a helpful message and marks the step'
 
 test('saving must not overwrite the dataset being read', async () => {
   await assert.rejects(
-    runFlow([step('READ_CSV', { file: 'marks.csv' }), step('DATABASE', { table: 'student marks' })], context(), quiet),
+    runFlow([step('READ_CSV', { file: 'results.csv' }), step('DATABASE', { table: 'training results' })], context(), quiet),
     /source data is not overwritten/,
   );
 });
 
 test('transform operations', async () => {
-  const run = (operation: string) => runFlow([step('READ_CSV', { file: 'marks.csv' }), step('TRANSFORM', { operation })], context(), quiet);
-  assert.deepEqual((await run('select columns student, score')).columns, ['Student', 'Score']);
-  assert.deepEqual((await run('drop columns status')).columns, ['Student', 'Score']);
-  assert.deepEqual((await run('sort by score desc')).rows.map(r => r.Student), ['Daniel', 'Amina', 'Mei', 'Rahim']);
+  const run = (operation: string) => runFlow([step('READ_CSV', { file: 'results.csv' }), step('TRANSFORM', { operation })], context(), quiet);
+  assert.deepEqual((await run('select columns trainee, score')).columns, ['Trainee', 'Score']);
+  assert.deepEqual((await run('drop columns status')).columns, ['Trainee', 'Score']);
+  assert.deepEqual((await run('sort by score desc')).rows.map(r => r.Trainee), ['Daniel', 'Amina', 'Mei', 'Rahim']);
   assert.equal((await run('limit 2')).rows.length, 2);
-  assert.ok((await run('rename score to marks')).columns.includes('marks'));
+  assert.ok((await run('rename score to results')).columns.includes('results'));
   await assert.rejects(run('select columns nothing'), /no column “nothing”/);
 });
 
 test('an operation it does not understand is skipped visibly, not guessed', async () => {
   const messages: string[] = [];
-  const r = await runFlow([step('READ_CSV', { file: 'marks.csv' }), step('TRANSFORM', { operation: 'select columns' }, 't')], context(), (id, _s, m) => id === 't' && messages.push(m));
+  const r = await runFlow([step('READ_CSV', { file: 'results.csv' }), step('TRANSFORM', { operation: 'select columns' }, 't')], context(), (id, _s, m) => id === 't' && messages.push(m));
   assert.equal(r.rows.length, 4);
   assert.ok(messages.some(m => m.startsWith('Skipped')));
 });
@@ -149,7 +149,7 @@ test('mixing and with or at one level is flagged; brackets and single operators 
 
 test('describeCondition and parseTransform read what the engine will run', async () => {
   const { describeCondition, parseTransform } = await import('../src/lib/engine.ts');
-  assert.equal(describeCondition('course == CS101 and attendance_pct < 70'), 'course is CS101 and attendance_pct is less than 70');
+  assert.equal(describeCondition('course == TR101 and attendance_pct < 70'), 'course is TR101 and attendance_pct is less than 70');
   assert.equal(describeCondition('(a >= 1 or b != "x y") and c contains z'), '(a is at least 1 or b is not x y) and c contains z');
   assert.equal(describeCondition('region in (South, West)'), 'region in (South, West)');
   assert.equal(describeCondition('not a valid ((('), 'not a valid (((');
@@ -164,7 +164,7 @@ test('describeCondition and parseTransform read what the engine will run', async
 test('explainStep says what Run will do, including when it will not do it', async () => {
   const { explainStep } = await import('../src/lib/explain.ts');
   const s = (type: string, config: Record<string, string>) => ({ id: '1', type, name: type, description: '', config });
-  assert.equal(explainStep(s('READ_CSV', { file: 'student_marks' })), 'Reads the “student_marks” dataset.');
+  assert.equal(explainStep(s('READ_CSV', { file: 'training_results' })), 'Reads the “training_results” dataset.');
   assert.equal(explainStep(s('FILTER', { condition: 'customer == Lim' })), 'Keeps only the rows where customer is Lim.');
   assert.match(explainStep(s('FILTER', { condition: 'a == 1 or b == 2 and c == 3' })), /Check the brackets/);
   assert.equal(explainStep(s('TRANSFORM', { operation: 'sort by years desc' })), 'Sorts the rows by years, highest first.');
@@ -180,7 +180,7 @@ test('a preview (dry run) never saves anything and never calls the web', async (
   const ctx = { ...context(saved), fetchJson: async (u: string) => { calls.push(u); return []; } };
 
   const withDb = await runFlow([
-    step('READ_CSV', { file: 'marks.csv' }), step('FILTER', { condition: 'score < 50' }), step('DATABASE', { table: 'low' }), step('OUTPUT', { format: 'table' }),
+    step('READ_CSV', { file: 'results.csv' }), step('FILTER', { condition: 'score < 50' }), step('DATABASE', { table: 'low' }), step('OUTPUT', { format: 'table' }),
   ], ctx, quiet, { dryRun: true });
   assert.equal(withDb.rows.length, 2);          // the result is still computed
   assert.deepEqual(saved, {});                  // but nothing was saved
@@ -192,22 +192,22 @@ test('a preview (dry run) never saves anything and never calls the web', async (
   assert.deepEqual(calls, []);                  // no request was made
 
   // a real run still saves
-  await runFlow([step('READ_CSV', { file: 'marks.csv' }), step('DATABASE', { table: 'all_rows' })], ctx, quiet);
+  await runFlow([step('READ_CSV', { file: 'results.csv' }), step('DATABASE', { table: 'all_rows' })], ctx, quiet);
   assert.equal(saved.all_rows.rows.length, 4);
 });
 
 /* ---------------- run register, lineage and exceptions (the "never silently wrong" guarantees) ---------------- */
 
-const readMarks = step('READ_CSV', { file: 'marks.csv' }, 'read');
+const readMarks = step('READ_CSV', { file: 'results.csv' }, 'read');
 
 test('every source row is accounted for: kept + excluded + flagged = total, and the result holds exactly the kept rows', async () => {
   const r = await runFlow([readMarks, step('FILTER', { condition: 'score < 50' }, 'f'), step('OUTPUT', { format: 'table' }, 'out')], context(), quiet);
   const reg = r.register!;
-  assert.equal(reg.source, '“Student marks”');
+  assert.equal(reg.source, '“Training results”');
   assert.deepEqual([reg.total, reg.kept, reg.excluded, reg.flagged], [4, 2, 1, 1]);
   assert.equal(reg.balanced, true);
   assert.deepEqual(r.lineage, [[1], [3]]);                                  // Amina and Mei are source rows 1 and 3
-  assert.deepEqual(r.rows.map(x => x.Student), ['Amina', 'Mei']);
+  assert.deepEqual(r.rows.map(x => x.Trainee), ['Amina', 'Mei']);
   assert.deepEqual(reg.rows[1], { row: 2, status: 'excluded', stepId: 'f', reason: 'does not match “score is less than 50”' });
   assert.deepEqual(reg.rows[3], { row: 4, status: 'flagged', stepId: 'f', reason: 'Score is blank, so “score is less than 50” could not be checked' });
 });
@@ -228,7 +228,7 @@ test('three-valued logic: a blank only matters when it decides the outcome', asy
   // Rahim's score is blank, but his status alone settles these, so nothing is flagged.
   let r = await run('score < 50 or status == ok');
   assert.equal(r.register!.flagged, 0);
-  assert.ok(r.rows.some(x => x.Student === 'Rahim'));
+  assert.ok(r.rows.some(x => x.Trainee === 'Rahim'));
   r = await run('score < 50 and status == late');
   assert.equal(r.register!.flagged, 0);
   assert.equal(r.register!.rows[3].status, 'excluded');
@@ -237,14 +237,14 @@ test('three-valued logic: a blank only matters when it decides the outcome', asy
   assert.equal(r.register!.rows[3].status, 'flagged');
   // `!=` keeps the blank row (the long-standing rule), but says the check was not really made.
   r = await run('score != 42');
-  assert.ok(r.rows.some(x => x.Student === 'Rahim'));
+  assert.ok(r.rows.some(x => x.Trainee === 'Rahim'));
   const kept = r.exceptions.find(e => e.kind === 'kept_undecided')!;
   assert.equal(kept.severity, 'warning');
   assert.deepEqual(kept.rows, [4]);
 });
 
 test('text in a numeric comparison is reported as "not a number", with the value only in the local register', async () => {
-  const odd: Table = { columns: ['Student', 'Score'], rows: [{ Student: 'A', Score: '55' }, { Student: 'B', Score: 'absent' }] };
+  const odd: Table = { columns: ['Trainee', 'Score'], rows: [{ Trainee: 'A', Score: '55' }, { Trainee: 'B', Score: 'absent' }] };
   const ctx = { ...context(), loadDataset: async () => odd };
   const r = await runFlow([readMarks, step('FILTER', { condition: 'score >= 50' }, 'f')], ctx, quiet);
   assert.equal(r.exceptions[0].id, 'f:undecided:Score:text');
@@ -255,7 +255,7 @@ test('text in a numeric comparison is reported as "not a number", with the value
 
 test('lineage survives sorting, and a limit records which rows it cut', async () => {
   const r = await runFlow([readMarks, step('TRANSFORM', { operation: 'sort by score desc' }, 's'), step('TRANSFORM', { operation: 'limit 2' }, 'l')], context(), quiet);
-  assert.deepEqual(r.rows.map(x => x.Student), ['Daniel', 'Amina']);
+  assert.deepEqual(r.rows.map(x => x.Trainee), ['Daniel', 'Amina']);
   assert.deepEqual(r.lineage, [[2], [1]]);
   assert.equal(r.register!.balanced, true);
   assert.deepEqual(r.register!.rows.filter(x => x.status === 'excluded').map(x => [x.row, x.stepId, x.reason]), [[3, 'l', 'after the first 2 rows'], [4, 'l', 'after the first 2 rows']]);
@@ -281,12 +281,12 @@ test('an empty result is a warning; a workflow with no data has no register', as
 });
 
 test('the trace records rows and columns in and out of every step', async () => {
-  const r = await runFlow([readMarks, step('FILTER', { condition: 'status == ok' }), step('TRANSFORM', { operation: 'select columns student' })], context(), quiet);
+  const r = await runFlow([readMarks, step('FILTER', { condition: 'status == ok' }), step('TRANSFORM', { operation: 'select columns trainee' })], context(), quiet);
   assert.deepEqual(r.trace.map(t => [t.type, t.rowsIn, t.rowsOut, t.columnsOut.length]), [['READ_CSV', 0, 4, 3], ['FILTER', 4, 3, 3], ['TRANSFORM', 3, 3, 1]]);
 });
 
 test('reading a second source reports that the first one was not used', async () => {
-  const r = await runFlow([readMarks, step('READ_CSV', { file: 'marks.csv' }, 'again')], context(), quiet);
+  const r = await runFlow([readMarks, step('READ_CSV', { file: 'results.csv' }, 'again')], context(), quiet);
   assert.equal(r.exceptions[0].kind, 'replaced_source');
   assert.equal(r.register!.total, 4);
   assert.equal(r.register!.balanced, true);

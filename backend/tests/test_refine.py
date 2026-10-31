@@ -10,7 +10,7 @@ from app.llm import normalize_config, refine_messages, refine_workflow
 from app.main import app
 
 STEPS = [
-    {"type": "READ_CSV", "config": {"file": "marks", "delimiter": ","}},
+    {"type": "READ_CSV", "config": {"file": "results", "delimiter": ","}},
     {"type": "FILTER", "config": {"condition": "score < 50"}},
     {"type": "OUTPUT", "config": {"format": "table"}},
 ]
@@ -34,11 +34,11 @@ def fake_model(monkeypatch, *replies):
 
 
 def test_the_model_is_shown_the_workflow_and_the_instruction_and_no_data():
-    messages = refine_messages(STEPS, "change the filter to 40", [{"name": "marks", "columns": ["name", "score"]}])
+    messages = refine_messages(STEPS, "change the filter to 40", [{"name": "results", "columns": ["name", "score"]}])
     assert [m["role"] for m in messages] == ["system", "user"]
     assert "Change only what the instruction asks for" in messages[0]["content"]
-    assert "- marks: columns name, score" in messages[0]["content"]
-    assert '{"steps":[{"type":"READ_CSV","file":"marks","delimiter":","}' in messages[1]["content"]
+    assert "- results: columns name, score" in messages[0]["content"]
+    assert '{"steps":[{"type":"READ_CSV","file":"results","delimiter":","}' in messages[1]["content"]
     assert messages[1]["content"].endswith("Instruction: change the filter to 40")
 
 
@@ -54,7 +54,7 @@ def test_a_change_is_reported_and_the_steps_come_back_named(monkeypatch):
 
 def test_the_same_workflow_back_is_reported_as_unchanged_even_if_written_differently(monkeypatch):
     # No delimiter in the input, extra spaces and a default filled in by the model: still the same workflow.
-    steps_in = [{"type": "READ_CSV", "config": {"file": "marks"}}, {"type": "FILTER", "config": {"condition": " score < 50 "}}, STEPS[2]]
+    steps_in = [{"type": "READ_CSV", "config": {"file": "results"}}, {"type": "FILTER", "config": {"condition": " score < 50 "}}, STEPS[2]]
     fake_model(monkeypatch, answer(STEPS))
     assert asyncio.run(refine_workflow(steps_in, "make the world better", "m")).unchanged is True
 

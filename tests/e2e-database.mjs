@@ -39,7 +39,7 @@ const step = (id, type, name, config) => ({ id, type, name, description: name, c
 writeFileSync(flowFile, JSON.stringify({
   format: 'jwork.workflow', version: 1, name: 'Log low scores', description: 'Adds low scores to a log',
   nodes: [
-    step('a', 'READ_CSV', 'Read marks', { file: 'student_marks' }),
+    step('a', 'READ_CSV', 'Read results', { file: 'training_results' }),
     step('b', 'FILTER', 'Low scores', { condition: 'score < 50' }),
     step('c', 'DATABASE', 'Log them', { table: 'low_log', mode: 'append' }),
     step('d', 'OUTPUT', 'Show', { format: 'table' }),
@@ -62,10 +62,10 @@ try {
   // 1. Upload data, import a workflow whose Database step appends.
   await page.goto(`${base}/knowledge?tab=data`);
   await page.getByText('No data yet').waitFor();
-  await page.locator('input[type=file]').first().setInputFiles(['sample_data/student_marks.xlsx', 'sample_data/courses.xlsx']);
+  await page.locator('input[type=file]').first().setInputFiles(['sample_data/training_results.xlsx', 'sample_data/courses.xlsx']);
   await page.locator('.kb__row', { hasText: 'courses' }).waitFor();
-  const marks = await find('student_marks');
-  assert.equal(marks.origin, 'upload');
+  const results = await find('training_results');
+  assert.equal(results.origin, 'upload');
 
   await page.goto(`${base}/workflows`);
   await page.getByRole('button', { name: 'Import' }).click();
@@ -103,7 +103,7 @@ try {
   await page.getByRole('heading', { name: 'Saved by workflows' }).waitFor();
   const yours = await page.locator('section[aria-label="Your data"] .kb__row').allInnerTexts();
   const saved = await page.locator('section[aria-label="Saved by workflows"] .kb__row').allInnerTexts();
-  assert.ok(yours.some(t => /student_marks/.test(t)) && yours.some(t => /courses/.test(t)));
+  assert.ok(yours.some(t => /training_results/.test(t)) && yours.some(t => /courses/.test(t)));
   assert.ok(!yours.some(t => /low_log/.test(t)), 'a saved result is not listed with uploads');
   assert.equal(saved.length, 1);
   assert.match(saved[0], /low_log[\s\S]*saved by a workflow/);
@@ -113,7 +113,7 @@ try {
   log('Data page: uploads under "Your data", low_log under "Saved by workflows" (no update-with-file button)');
 
   // 5. A new upload with the same columns as the result is not offered as an update to it.
-  await page.locator('input[type=file]').first().setInputFiles('sample_data/student_marks_next_semester.xlsx');
+  await page.locator('input[type=file]').first().setInputFiles('sample_data/training_results_next_quarter.xlsx');
   await page.getByRole('dialog').waitFor();
   const dialog = await page.getByRole('dialog').innerText();
   assert.ok(!/low_log/.test(dialog), 'the upload dialog must not offer the saved result as a target');

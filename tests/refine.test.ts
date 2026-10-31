@@ -37,7 +37,7 @@ test('normalizing a step’s parameters is identical to the Python reference', (
 /* ---------------- the loop, with a fake AI ---------------- */
 
 const STEPS: StepInput[] = [
-  { type: 'READ_CSV', config: { file: 'marks', delimiter: ',' } },
+  { type: 'READ_CSV', config: { file: 'results', delimiter: ',' } },
   { type: 'FILTER', config: { condition: 'score < 50' } },
   { type: 'OUTPUT', config: { format: 'table' } },
 ];
@@ -64,7 +64,7 @@ test('a change comes back as the whole workflow, named, and marked as changed', 
 });
 
 test('the same workflow back is "unchanged", even if the input was written differently', async () => {
-  const written = [{ type: 'READ_CSV', config: { file: 'marks' } }, { type: 'FILTER', config: { condition: ' score < 50 ' } }, STEPS[2]];
+  const written = [{ type: 'READ_CSV', config: { file: 'results' } }, { type: 'FILTER', config: { condition: ' score < 50 ' } }, STEPS[2]];
   const r = await refineWorkflow(written, 'make the world better', options(fakeAi(said(STEPS))));
   assert.equal(r.unchanged, true);
 });
@@ -92,11 +92,11 @@ test('when a model is unavailable the next one is used', async () => {
 test('revise: the model sees the request and the run report, and its fix comes back as the whole workflow', async () => {
   const fixed = [STEPS[0], { type: 'FILTER', config: { condition: 'score < 60' } }, STEPS[2]];
   const ai = fakeAi(said(fixed));
-  const r = await reviseWorkflow('Students below 60', STEPS, 'The result has 0 rows.', options(ai));
+  const r = await reviseWorkflow('Trainees below 60', STEPS, 'The result has 0 rows.', options(ai));
   assert.equal(r.unchanged, false);
   assert.equal(r.valid, true);
   const user = ai.calls[0].inputs.messages[1].content as string;
-  assert.match(user, /^Request: Students below 60\n\nCurrent workflow:/);
+  assert.match(user, /^Request: Trainees below 60\n\nCurrent workflow:/);
   assert.match(user, /What happened when it ran:\nThe result has 0 rows\.$/);
-  assert.equal((await reviseWorkflow('Students below 50', STEPS, 'The result has 3 rows.', options(fakeAi(said(STEPS))))).unchanged, true);
+  assert.equal((await reviseWorkflow('Trainees below 50', STEPS, 'The result has 3 rows.', options(fakeAi(said(STEPS))))).unchanged, true);
 });
