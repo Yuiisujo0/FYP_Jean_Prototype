@@ -9,11 +9,11 @@ function flow(id: string, name: string, description: string, ageMs: number, step
 
 /** Sample workflows shown on first launch, and restored by "Reset demo data". */
 export const makeStarters = (): Flow[] => [
-  flow('student-scores', 'Student score review', 'Find at-risk students from a CSV and prepare a review list.', 4 * 60_000, [
-    { id: 's1', type: 'READ_CSV', name: 'Read student scores', description: 'Load a CSV file of student marks.', config: { file: 'student_scores.csv', delimiter: ',' } },
-    { id: 's2', type: 'FILTER', name: 'Find scores below 50', description: 'Keep students who need a closer look.', config: { condition: 'score < 50' } },
-    { id: 's3', type: 'DATABASE', name: 'Save review records', description: 'Store names and marks for follow-up.', config: { table: 'student_review' } },
-    { id: 's4', type: 'OUTPUT', name: 'Review list', description: 'Make the resulting records available.', config: { format: 'table' } },
+  flow('stock-review', 'Low stock review', 'Find items running low from a CSV and prepare a reorder list.', 4 * 60_000, [
+    { id: 's1', type: 'READ_CSV', name: 'Read stock list', description: 'Load a CSV file of stock counts.', config: { file: 'stock_list.csv', delimiter: ',' } },
+    { id: 's2', type: 'FILTER', name: 'Find stock below 5', description: 'Keep items that need reordering.', config: { condition: 'stock < 5' } },
+    { id: 's3', type: 'DATABASE', name: 'Save reorder records', description: 'Store items and counts for follow-up.', config: { table: 'reorder_list' } },
+    { id: 's4', type: 'OUTPUT', name: 'Reorder list', description: 'Make the resulting records available.', config: { format: 'table' } },
   ]),
   flow('weekly-report', 'Weekly report digest', 'Shape weekly data into a tidy report.', 26 * HOUR, [
     { id: 'r1', type: 'INPUT', name: 'Weekly source', description: 'Receive the report data.', config: { source: 'weekly_export.csv' } },

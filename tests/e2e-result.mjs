@@ -28,7 +28,7 @@ try {
   const heading = await page.locator('h1.welcome').innerText();
   assert.equal(heading.trim(), 'Welcome to jwork');
   assert.equal(await page.getByText('Jean').count(), 0, 'nobody is greeted by the author\'s name');
-  await page.getByText('Student score review').waitFor();
+  await page.getByText('Low stock review').waitFor();
   await shot('result-01-dashboard');
   log('dashboard: no name; the three starter workflows are there');
 
