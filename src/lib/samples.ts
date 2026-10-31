@@ -4,13 +4,11 @@
  */
 import employees from '../data/samples/employees.csv?raw';
 import inventory from '../data/samples/inventory.csv?raw';
-import libraryLoans from '../data/samples/library_loans.csv?raw';
 import salesOrders from '../data/samples/sales_orders.csv?raw';
 import { listDatasets, saveTable } from './library';
 import { parseCsv } from './tables';
 
 const SAMPLES: [string, string][] = [
-  ['library_loans', libraryLoans],
   ['employees', employees],
   ['sales_orders', salesOrders],
   ['inventory', inventory],

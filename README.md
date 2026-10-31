@@ -13,7 +13,7 @@ This is a Final Year Project prototype (Universiti Malaysia Sarawak). It is a re
 ## Try it
 
 1. Open the live site and go to **Generate**.
-2. Click **Add sample data**. It adds four small made-up tables (library loans, employees, sales orders, inventory) to
+2. Click **Add sample data**. It adds three small made-up tables (employees, sales orders, inventory) to
    the Data library in your browser.
 3. Pick an example, such as *From employees, list everyone in Sales earning over 6000, highest salary first*, and click
    **Build workflow**.

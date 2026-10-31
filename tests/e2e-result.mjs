@@ -35,7 +35,7 @@ try {
   // Sample data, then an example request.
   await page.goto(`${base}/generate`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Add sample data' }).click();
-  await page.getByText(/Added 4 sample datasets/).waitFor();
+  await page.getByText(/Added 3 sample datasets/).waitFor();
   await page.getByRole('button', { name: 'Add sample data' }).waitFor({ state: 'detached' });
   const example = process.env.EXAMPLE ?? 'From employees, list everyone in Sales earning over 6000, highest salary first';
   await page.getByRole('button', { name: example }).click();

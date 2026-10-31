@@ -218,7 +218,7 @@ export function GeneratePage() {
           <h2>Or start from an example</h2>
           {missingSamples > 0 && (
             <p className="gen__samples">
-              <span>The examples use sample tables (library loans, employees, sales orders, inventory). They are made up and stay in this browser.</span>
+              <span>The examples use sample tables (employees, sales orders, inventory). They are made up and stay in this browser.</span>
               <Button size="sm" loading={adding} icon={<Database size={15} />} onClick={addSamples}>Add sample data</Button>
             </p>
           )}
