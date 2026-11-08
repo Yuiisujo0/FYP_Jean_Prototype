@@ -403,6 +403,7 @@ body:has(.editor__resize.is-dragging) * { cursor: var(--resize-cursor) !importan
 .review__blockers li { display: flex; gap: 0.4rem; align-items: baseline; }
 .review__approve { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .review__approve .input { flex: 1; min-width: 8rem; }
+.review__approve--email .input { flex-basis: 100%; }
 .check__agent { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.45rem; font-size: 0.8125rem; line-height: 1.45; }
 .check__agent li { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.45rem; }
 .check__agent li > svg { margin-top: 3px; color: var(--accent); }

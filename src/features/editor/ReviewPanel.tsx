@@ -1,6 +1,7 @@
-import { BadgeCheck, CircleAlert, FileSpreadsheet, Lock, TriangleAlert, Undo2 } from 'lucide-react';
+import { BadgeCheck, CircleAlert, FileSpreadsheet, Lock, Mail, TriangleAlert, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../../components/ui/Button';
+import { emailDraftUrl, isEmailAddress } from '../../lib/emailDraft';
 import { slug } from '../../lib/format';
 import { canAccept, MIN_REASON } from '../../lib/review';
 import { useWorkspace } from '../../state/WorkspaceContext';
@@ -95,7 +96,41 @@ export function NeedsYourEye({ editor, onFocusNode }: { editor: FlowEditor; onFo
   );
 }
 
-/** The approval of the result on screen and the Excel report. */
+/** Only an approved result reaches this box: it downloads the report and opens a draft in the user's own email app. */
+function EmailBox({ editor, filename, onDownload }: { editor: FlowEditor; filename: string; onDownload: () => void }) {
+  const [to, setTo] = useState('');
+  const [opened, setOpened] = useState('');
+  const { approval, result } = editor;
+  if (!approval || !result) return null;
+  const ready = isEmailAddress(to);
+  const label = <><Mail size={15} aria-hidden /> Prepare email</>;
+  return (
+    <div className="review__gate">
+      <p className="review__label">Send by email</p>
+      <div className="review__approve review__approve--email">
+        <input className="input" type="email" value={to} onChange={e => { setTo(e.target.value); setOpened(''); }} placeholder="name@company.com" aria-label="Recipient's email address" />
+        {ready ? (
+          <a
+            className="btn btn--primary btn--sm"
+            href={emailDraftUrl({ to, workflow: editor.name, rows: result.register?.kept ?? null, approver: approval.approver, approvedOn: when(approval.approvedAt), filename })}
+            onClick={() => { onDownload(); setOpened(to.trim()); }}
+          >
+            {label}
+          </a>
+        ) : <Button variant="primary" size="sm" disabled>{label}</Button>}
+      </div>
+      <p className="check__hint" role="status">
+        <span>
+          {opened
+            ? <>The report is in your downloads and a message to {opened} is open in your email app. Attach <b>{filename}</b>, check it and press send.</>
+            : 'This downloads the report and opens a message in your own email app. jwork sends nothing itself.'}
+        </span>
+      </p>
+    </div>
+  );
+}
+
+/** The approval of the result on screen, the Excel report and the email draft. */
 export function ApproveBox({ editor }: { editor: FlowEditor }) {
   const { profile } = useWorkspace();
   const [approver, setApprover] = useState(profile.name);
@@ -117,9 +152,10 @@ export function ApproveBox({ editor }: { editor: FlowEditor }) {
     }
   };
 
+  const filename = `${slug(editor.name)}-report.xlsx`;
   const report = () => {
     const bytes = editor.reportBytes();
-    if (bytes) download(bytes, `${slug(editor.name)}-report.xlsx`);
+    if (bytes) download(bytes, filename);
   };
 
   return (
@@ -155,6 +191,7 @@ export function ApproveBox({ editor }: { editor: FlowEditor }) {
       <Button size="sm" icon={<FileSpreadsheet size={15} />} onClick={report}>
         Download report (Excel){approvalForResult ? '' : ', draft'}
       </Button>
+      {approvalForResult && <EmailBox editor={editor} filename={filename} onDownload={report} />}
     </>
   );
 }
