@@ -35,7 +35,7 @@ try {
   await page.getByText(`A user might type: “${s3.request}”`).waitFor();
   const steps = await page.locator('.kb__steps li').allInnerTexts();
   assert.equal(steps.length, s3.steps.length);
-  assert.ok(steps.some(t => /Keeps only the rows where .*category is Tools and reorder_level is less than 70/.test(t.replace(/\s+/g, ' '))), steps.join(' | '));
+  assert.ok(steps.some(t => /Keeps only the rows where .*category is Tools and stock is less than 20/.test(t.replace(/\s+/g, ' '))), steps.join(' | '));
   await shot('p1-pattern');
   log('pattern detail shows its request and its steps in plain English');
 
