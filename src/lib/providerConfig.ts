@@ -10,8 +10,11 @@ export interface ProviderConfig {
   kind: ProviderKind;
   ollamaUrl: string;
   ollamaModel: string;
+  /** Blank means no second opinion. */
+  ollamaSecondModel: string;
   customUrl: string;
   customModel: string;
+  customSecondModel: string;
   customKey: string;
 }
 
@@ -19,8 +22,10 @@ export const DEFAULT_PROVIDER: ProviderConfig = {
   kind: 'service',
   ollamaUrl: 'http://localhost:11434',
   ollamaModel: 'qwen2.5:7b',
+  ollamaSecondModel: '',
   customUrl: 'https://openrouter.ai/api/v1',
   customModel: 'openai/gpt-oss-20b',
+  customSecondModel: '',
   customKey: '',
 };
 
@@ -45,6 +50,15 @@ export const ollamaApiBase = (url: string) => `${url.trim().replace(/\/+$/, '').
 /** What the user has to fix, in words, when the browser cannot reach their Ollama. */
 export function ollamaHelp(origin: string): string {
   return `Could not reach Ollama. Check that it is running, then allow this site to call it: set the environment variable OLLAMA_ORIGINS to ${origin} (or *) and restart Ollama. Use Chrome or Edge; Safari blocks calls to localhost.`;
+}
+
+/**
+ * The model that writes the second plan, or '' for none. A model does not check itself: on 60 tasks it wrote the same plan
+ * 44 times and caught 0 of 12 wrong answers. The hosted service has none yet: gpt-oss with Llama 3.1 is not measured.
+ */
+export function secondModel(c: ProviderConfig): string {
+  const [main, second] = c.kind === 'ollama' ? [c.ollamaModel, c.ollamaSecondModel] : c.kind === 'custom' ? [c.customModel, c.customSecondModel] : ['', ''];
+  return second.trim() === main.trim() ? '' : second.trim();
 }
 
 /** Whether the chosen provider has everything it needs before a request is even tried. */

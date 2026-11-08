@@ -5,11 +5,13 @@ import { Button } from '../../components/ui/Button';
 import { EXAMPLES } from '../../data/examples';
 import { checkByRunning } from '../../lib/agent';
 import { browserAgentDeps } from '../../lib/agentDeps';
+import { secondOpinion } from '../../lib/secondOpinion';
 import { generateFlow } from '../../lib/api';
 import { chainEdges, defaultPosition, orderSteps } from '../../lib/flowGraph';
 import { addHistory, clearHistory, loadHistory, type HistoryItem } from '../../lib/history';
 import { datasetBriefs } from '../../lib/library';
-import { PROVIDER_LABEL } from '../../lib/providerConfig';
+import { readProvider } from '../../lib/provider';
+import { PROVIDER_LABEL, secondModel } from '../../lib/providerConfig';
 import { addSampleData, SAMPLE_NAMES } from '../../lib/samples';
 import { smallTalk, type SmallTalk } from '../../lib/smalltalk';
 import type { AgentRound, Flow } from '../../types';
@@ -18,7 +20,6 @@ import { useWorkspace } from '../../state/WorkspaceContext';
 import './GeneratePage.css';
 
 const MAX_LENGTH = 500;
-
 
 export function GeneratePage() {
   const { flows, addFlow, notify, ollama } = useWorkspace();
@@ -31,7 +32,7 @@ export function GeneratePage() {
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState('');
   // 'generate': the model drafts the workflow; 'test': the agent runs it on your data and revises it if needed.
-  const [stage, setStage] = useState<'generate' | 'test'>('generate');
+  const [stage, setStage] = useState<'generate' | 'test' | 'opinion'>('generate');
   const [rounds, setRounds] = useState<AgentRound[]>([]);
   const abort = useRef<AbortController | null>(null);
   // A greeting or "what can you do" is answered here, without calling the AI.
@@ -89,13 +90,27 @@ export function GeneratePage() {
       if (result.valid) {
         // The agent: run the plan on the user's data (a dry run), look at what happened, revise if something looks wrong.
         setStage('test');
+        const tools = browserAgentDeps(text, datasets, controller.signal);
         const checked = await checkByRunning(orderSteps(flow.nodes, flow.edges), {
-          ...browserAgentDeps(text, datasets, controller.signal),
+          ...tools,
           onRound: round => setRounds(rs => [...rs, round]),
         });
         const nodes = checked.steps.map((s, i) => ({ ...s, position: defaultPosition(i) }));
         flow = { ...flow, nodes, edges: chainEdges(nodes), checks: checked.rounds };
         status = checked.status === 'clean' ? ' and tested on your data' : checked.status === 'open' ? '; testing found something to review' : '';
+
+        const checker = secondModel(readProvider());
+        if (checker && checked.status !== 'untestable') {
+          setStage('opinion');
+          flow.secondOpinion = await secondOpinion(checked.steps, {
+            draft: async () => {
+              const again = await generateFlow(text, controller.signal, datasets, checker);
+              return again.valid ? orderSteps(again.flow.nodes, again.flow.edges) : null;
+            },
+            check: async steps => (await checkByRunning(steps, tools)).steps,
+            test: tools.test,
+          });
+        }
       }
       if (controller.signal.aborted) return;
       addFlow(flow);
@@ -187,6 +202,15 @@ export function GeneratePage() {
                 <b>Testing it on your data · {seconds}s</b>
                 <span className="gen__found">A dry run in your browser: nothing is saved, and the AI sees only counts and column names.</span>
                 {rounds.map(r => <span key={r.round} className="gen__found">Round {r.round}: {r.detail}</span>)}
+              </span>
+            </li>
+          )}
+          {stage === 'opinion' && (
+            <li className="is-active">
+              <span className="gen__marker"><LoaderCircle size={14} className="spin" /></span>
+              <span>
+                <b>Getting a second opinion · {seconds}s</b>
+                <span className="gen__found">A second plan is written by another model and both are run in your browser. Different answers go on your review list.</span>
               </span>
             </li>
           )}

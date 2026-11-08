@@ -179,6 +179,9 @@ export function ResultView({ editor, request, onRun, onShowSteps, onFocusNode, o
               <ol>{checks.map(c => <li key={c.round}>{c.detail}</li>)}</ol>
             </details>
           )}
+          {editor.secondOpinion && editor.secondOpinion.outcome !== 'different' && (
+            <p className="check__hint"><span>{editor.secondOpinion.detail}</span></p>
+          )}
           <ChangeBox busy={editor.refining} onSubmit={onRefine} />
           <button type="button" className="rv__link" onClick={onShowSteps}>See how it was done, step by step <ArrowRight size={14} aria-hidden /></button>
         </Section>
@@ -188,7 +191,7 @@ export function ResultView({ editor, request, onRun, onShowSteps, onFocusNode, o
             <Section no={3} title="What needs your eye" note={toReview ? undefined : 'nothing to decide'}>
               <NeedsYourEye editor={editor} onFocusNode={onFocusNode} />
             </Section>
-            <Section no={4} title="Approve and download">
+            <Section no={4} title="Approve and send">
               <ApproveBox editor={editor} />
             </Section>
           </>

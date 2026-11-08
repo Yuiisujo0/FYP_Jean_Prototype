@@ -84,11 +84,14 @@ async function viaBrowser<T>(config: ProviderConfig, signal: AbortSignal | undef
   }
 }
 
-/** Turns a plain-English request into a workflow. `datasets` are names and columns only, never rows. */
-export function generateFlow(prompt: string, signal?: AbortSignal, datasets?: DatasetBrief[]): Promise<GenerateResult> {
+/**
+ * Turns a plain-English request into a workflow. `datasets` are names and columns only, never rows.
+ * `model` replaces the chosen model, for a second plan written by another one. It applies to the user's own providers.
+ */
+export function generateFlow(prompt: string, signal?: AbortSignal, datasets?: DatasetBrief[], model?: string): Promise<GenerateResult> {
   const config = readProvider();
   if (config.kind === 'service') return request<GenerateResult>('/api/generate', json('POST', { prompt, datasets }, signal));
-  return viaBrowser(config, signal, o => generateWorkflow(prompt, { ...o, datasets }));
+  return viaBrowser(config, signal, o => generateWorkflow(prompt, { ...o, models: model ? [model] : o.models, datasets }));
 }
 
 /** Changes an existing workflow as the instruction says. Sends the steps and the instruction, never any data. */

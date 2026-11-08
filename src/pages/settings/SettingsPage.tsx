@@ -142,6 +142,9 @@ function ModelSection() {
             <input className="input" aria-label="Ollama model" list="ollama-installed" value={provider.ollamaModel} onChange={e => setProvider({ ollamaModel: e.target.value })} spellCheck={false} />
             <datalist id="ollama-installed">{models.map(m => <option key={m} value={m} />)}</datalist>
           </Row>
+          <Row title="Second opinion model" hint="Optional. A different model writes a second plan, and any disagreement goes on your review list. Each request takes longer. Leave blank to skip.">
+            <input className="input" aria-label="Second opinion model" list="ollama-installed" value={provider.ollamaSecondModel} onChange={e => setProvider({ ollamaSecondModel: e.target.value })} spellCheck={false} />
+          </Row>
           <p className="settings__note">
             One-time setup: install Ollama, run <code>ollama pull {provider.ollamaModel || 'qwen2.5:7b'}</code>, and allow this site to call it by setting <code>OLLAMA_ORIGINS</code> to <code>{window.location.origin}</code> before starting Ollama. Use Chrome or Edge.
           </p>
@@ -164,6 +167,9 @@ function ModelSection() {
           </Row>
           <Row title="Model" hint="The model name the provider uses, for example openai/gpt-oss-20b.">
             <input className="input" aria-label="Model name" value={provider.customModel} onChange={e => setProvider({ customModel: e.target.value })} spellCheck={false} />
+          </Row>
+          <Row title="Second opinion model" hint="Optional. A different model writes a second plan, and any disagreement goes on your review list. Each request uses about twice the AI calls. Leave blank to skip.">
+            <input className="input" aria-label="Second opinion model" value={provider.customSecondModel} onChange={e => setProvider({ customSecondModel: e.target.value })} spellCheck={false} />
           </Row>
           <Row title="API key" hint={preset ? `Create one at ${preset.keyUrl.replace('https://', '')}. It stays in this browser and is never sent to the jwork service.` : 'Stays in this browser. It is never sent to the jwork service.'}>
             <div className="inline-field">

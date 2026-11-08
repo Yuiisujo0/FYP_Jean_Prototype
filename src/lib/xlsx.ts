@@ -8,7 +8,7 @@
  * Tested in tests/xlsx.test.ts by reading the file back with the app's own reader (src/lib/tables.ts).
  */
 import { strToU8, zipSync } from 'fflate';
-import type { AgentRound, ApprovalRecord, RunResult, Step } from '../types';
+import type { AgentRound, ApprovalRecord, RunResult, SecondOpinion, Step } from '../types';
 import { explainStep } from './explain.ts';
 import type { Assumption, ReviewDecisions } from './review.ts';
 
@@ -96,6 +96,7 @@ export interface ReportInput {
   decisions: ReviewDecisions;
   approval: ApprovalRecord | null;
   checks: AgentRound[];
+  secondOpinion?: SecondOpinion;
   madeAt: Date;
 }
 
@@ -165,6 +166,10 @@ export function reportSheets(r: ReportInput): Sheet[] {
   mTitle('Tested by running it (the agent)');
   if (!r.checks.length) method.push(['This workflow was not tested by the agent.']);
   for (const c of r.checks) method.push([`Round ${c.round}: ${c.outcome}`, c.detail, c.sent ? `Sent to the AI: ${c.sent}` : 'Nothing was sent to the AI.']);
+  method.push([]);
+  mTitle('Second opinion');
+  method.push([r.secondOpinion?.detail ?? 'This workflow has no second opinion.']);
+  if (r.secondOpinion?.secondPlan.length) method.push(['The second plan', r.secondOpinion.secondPlan.join(' ')]);
   method.push([]);
   mTitle('Approval');
   if (!r.approval) method.push(['Not approved. This report is a draft.']);

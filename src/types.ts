@@ -27,8 +27,22 @@ export interface Flow {
   edges: FlowEdge[];
   /** How the workflow was tested by running it after it was generated (the agent's rounds), if it was. */
   checks?: AgentRound[];
+  /** A second plan, written separately and compared by running both (src/lib/secondOpinion.ts), if there was one. */
+  secondOpinion?: SecondOpinion;
   /** The last approval of a reviewed result. It stops counting once the workflow changes (see `workflowHash`). */
   approval?: ApprovalRecord;
+}
+
+export interface SecondOpinion {
+  /** The workflow it was made for: it stops counting once the workflow changes (see `workflowKey`). */
+  workflowKey: string;
+  outcome: 'same_plan' | 'same_answer' | 'similar_answer' | 'different' | 'not_done';
+  /** The outcome in plain words. */
+  detail: string;
+  /** The second plan, one sentence per step. Empty when there is nothing to show. */
+  secondPlan: string[];
+  /** How many rows each plan returned, when both ran. */
+  rows?: { first: number; second: number };
 }
 
 /** One round of the generate-and-check loop: run the plan, observe, and revise if something looked wrong. */
@@ -136,10 +150,11 @@ export type ExceptionKind =
   | 'join_multiple'      // rows matching several rows in the joined dataset; only the first is used
   | 'duplicate_rows'     // identical rows that all reach the result and are counted again
   | 'replaced_source'    // a later step read another source, so earlier rows were not used
+  | 'second_opinion'     // a second plan, written separately, gave a different answer
   | 'unbalanced';        // the row register does not add up (a bug guard)
 
 export interface RunException {
-  /** Stable for the same workflow and data, e.g. `stepId:undecided:Score:blank`. */
+  /** Stable for the same workflow and data, e.g. `stepId:undecided:Stock:blank`. */
   id: string;
   stepId: string;
   stepName: string;

@@ -3,6 +3,7 @@ import type { AgentRound, Flow, FlowEdge, KnowledgeEntry, Step } from '../types'
 import { chainEdges, withPositions } from './flowGraph';
 import { makeId } from './id';
 import { readApproval } from './review';
+import { readSecondOpinion } from './secondOpinion';
 
 export const KEYS = {
   flows: 'jwork.flows.v1',
@@ -46,6 +47,7 @@ export function normaliseFlow(raw: Partial<Flow> & { updated?: string }): Flow {
   const nodes = withPositions((raw.nodes ?? []) as Step[]);
   const edges: FlowEdge[] = Array.isArray(raw.edges) && raw.edges.length ? raw.edges : chainEdges(nodes);
   const approval = readApproval(raw.approval);
+  const secondOpinion = readSecondOpinion(raw.secondOpinion);
   const checks = Array.isArray(raw.checks)
     ? raw.checks.filter((c): c is AgentRound => !!c && typeof c === 'object' && typeof c.round === 'number' && typeof c.detail === 'string')
     : [];
@@ -57,6 +59,7 @@ export function normaliseFlow(raw: Partial<Flow> & { updated?: string }): Flow {
     nodes,
     edges: edges.map(e => ({ id: e.id ?? makeId(), source: e.source, target: e.target })),
     ...(checks.length ? { checks } : {}),
+    ...(secondOpinion ? { secondOpinion } : {}),
     ...(approval ? { approval } : {}),
   };
 }

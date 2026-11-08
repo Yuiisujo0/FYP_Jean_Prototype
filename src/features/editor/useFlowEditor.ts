@@ -9,6 +9,7 @@ import { datasetBriefs } from '../../lib/library';
 import { describeChanges, NO_CHANGE, reconcile } from '../../lib/refine';
 import { approve, assumptionsFor, emptyDecisions, reviewGate, tableHash, workflowHash, workflowKey, type ReviewDecisions } from '../../lib/review';
 import { runContext } from '../../lib/runContext';
+import { opinionFor, secondOpinionException } from '../../lib/secondOpinion';
 import { errorCount, validateWorkflow } from '../../lib/validate';
 import { buildReport } from '../../lib/xlsx';
 import { usePreview } from './usePreview';
@@ -143,7 +144,8 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
     setDecisions(emptyDecisions());
     try {
       const out = await runFlow(ordered, runContext, (id, state, message) => setRuns(r => ({ ...r, [id]: { state, message } })));
-      setResult(out);
+      const disagreement = secondOpinionException(flowRef.current.secondOpinion, ordered);
+      setResult(disagreement ? { ...out, exceptions: [...out.exceptions, disagreement] } : out);
       setRan({ steps: ordered, key: workflowKey(ordered) });
       return 'done';
     } catch (e) {
@@ -194,6 +196,8 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
   }, [result]);
   const approvalForResult = approval && approvalCurrent && resultHash && approval.outputHash === resultHash ? approval : null;
 
+  const secondOpinion = opinionFor(flow.secondOpinion, ordered);
+
   const approveResult = useCallback(async (approver: string) => {
     if (!result || !ran || stale) throw new Error('Run the workflow again first.');
     const record = await approve(ran.steps, result, assumptions, decisions, approver);
@@ -206,9 +210,9 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
     if (!result || !ran) return null;
     return buildReport({
       flowName: name, request: flow.description, steps: ran.steps, result, assumptions, decisions,
-      approval: approvalForResult, checks: flow.checks ?? [], madeAt: new Date(),
+      approval: approvalForResult, checks: flow.checks ?? [], secondOpinion, madeAt: new Date(),
     });
-  }, [result, ran, name, flow.description, flow.checks, assumptions, decisions, approvalForResult]);
+  }, [result, ran, name, flow.description, flow.checks, secondOpinion, assumptions, decisions, approvalForResult]);
 
   /* ---------- Natural-language edit ---------- */
   const refine = useCallback(async (text: string): Promise<{ text: string; ok: boolean }> => {
@@ -241,7 +245,7 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
     runs, running, result, runError, run, clearRun,
     refine, refining,
     stale, assumptions, decisions, gate, acceptException, reopenException, confirmAssumption,
-    approval, approvalCurrent, approvalForResult, approveResult, reportBytes, checks: flow.checks ?? [],
+    approval, approvalCurrent, approvalForResult, approveResult, reportBytes, checks: flow.checks ?? [], secondOpinion,
   };
 }
 

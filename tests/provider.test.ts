@@ -5,9 +5,9 @@ import { test } from 'node:test';
 import { ProviderUnavailable } from '../src/pipeline/ai.ts';
 import { generateWorkflow } from '../src/pipeline/generate.ts';
 import { cleanBaseUrl, openAiCompatible } from '../src/pipeline/openaiAi.ts';
-import { ollamaApiBase, providerProblem, DEFAULT_PROVIDER } from '../src/lib/providerConfig.ts';
+import { ollamaApiBase, providerProblem, secondModel, DEFAULT_PROVIDER } from '../src/lib/providerConfig.ts';
 
-const GOOD = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'results', delimiter: ',' }, { type: 'FILTER', condition: 'score < 50' }, { type: 'OUTPUT', format: 'table' }] });
+const GOOD = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'results', delimiter: ',' }, { type: 'FILTER', condition: 'stock < 50' }, { type: 'OUTPUT', format: 'table' }] });
 const completion = (content: string) => new Response(JSON.stringify({ choices: [{ message: { content } }], usage: { prompt_tokens: 10, completion_tokens: 5 } }), { status: 200 });
 
 function fake(replies: (Response | Error)[]) {
@@ -20,6 +20,15 @@ function fake(replies: (Response | Error)[]) {
   }) as unknown as typeof fetch;
   return { calls, fetchImpl };
 }
+
+test('a second opinion needs a different model, and the hosted service has none yet', () => {
+  const ollama = { ...DEFAULT_PROVIDER, kind: 'ollama' as const };
+  assert.equal(secondModel(ollama), '');
+  assert.equal(secondModel({ ...ollama, ollamaSecondModel: ' gemma3:4b ' }), 'gemma3:4b');
+  assert.equal(secondModel({ ...ollama, ollamaSecondModel: ollama.ollamaModel }), '');
+  assert.equal(secondModel({ ...DEFAULT_PROVIDER, kind: 'custom', customSecondModel: 'other' }), 'other');
+  assert.equal(secondModel({ ...DEFAULT_PROVIDER, ollamaSecondModel: 'gemma3:4b', customSecondModel: 'other' }), '');
+});
 
 test('addresses are normalised', () => {
   assert.equal(cleanBaseUrl(' https://x.test/v1/// '), 'https://x.test/v1');
@@ -57,7 +66,7 @@ test('an error status carries the provider message', async () => {
 
 test('the generate pipeline works end to end through the adapter', async () => {
   const { calls, fetchImpl } = fake([completion(GOOD)]);
-  const r = await generateWorkflow('Find trainees who scored below 50', { ai: openAiCompatible({ baseUrl: 'http://localhost:11434/v1', fetchImpl }), models: ['qwen2.5:7b'], datasets: [{ name: 'results', columns: ['name', 'score'] }] });
+  const r = await generateWorkflow('Find items with stock below 50', { ai: openAiCompatible({ baseUrl: 'http://localhost:11434/v1', fetchImpl }), models: ['qwen2.5:7b'], datasets: [{ name: 'results', columns: ['name', 'stock'] }] });
   assert.equal(r.valid, true);
   assert.deepEqual(r.flow.nodes.map(n => n.type), ['READ_CSV', 'FILTER', 'OUTPUT']);
   assert.equal(r.model, 'qwen2.5:7b');
