@@ -48,7 +48,7 @@ class ValidationIssue(BaseModel):
 # ---------- What the model is asked to return ----------
 
 class DraftWorkflow(BaseModel):
-    """`steps` are flat objects such as {"type": "FILTER", "condition": "score < 50"}."""
+    """`steps` are flat objects such as {"type": "FILTER", "condition": "stock < 5"}."""
     steps: list[dict[str, str]]
 
 

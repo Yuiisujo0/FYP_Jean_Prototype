@@ -33,9 +33,9 @@ NODE_KINDS: list[NodeKind] = [
     NodeKind("LLM", "LLM", "Process text with a local model", "Ask the model", "Structure text with a local model.",
              optional=("task",), default_config={"task": "summarise"}),
     NodeKind("FILTER", "Filter", "Keep rows that match a rule", "Filter records", "Keep records that match a condition.",
-             required=("condition",), default_config={"condition": "score < 50"},
+             required=("condition",), default_config={"condition": "stock < 5"},
              hint="condition compares column names with values using < <= > >= == != contains in, joined by and / or, with brackets. "
-                  "Examples: score < 50 ; status == shipped and quantity >= 20 ; region in (South, West) ; salary between 4000 and 6000. "
+                  "Examples: stock < 5 ; status == shipped and quantity >= 20 ; region in (South, West) ; salary between 4000 and 6000. "
                   "Put brackets around an or: quantity >= 20 and (region == South or region == West). It is not SQL: no SELECT, no subqueries."),
     NodeKind("TRANSFORM", "Transform", "Reshape fields for the next step", "Transform data", "Reshape fields for the next step.",
              required=("operation",), default_config={"operation": "select columns"},

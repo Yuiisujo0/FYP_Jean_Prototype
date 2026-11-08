@@ -11,17 +11,17 @@ import { asCell, buildReport, buildXlsx, reportSheets } from '../src/lib/xlsx.ts
 import type { Step } from '../src/types.ts';
 
 const results: Table = {
-  columns: ['Trainee', 'Score', 'Status'],
+  columns: ['Item', 'Stock', 'Status'],
   rows: [
-    { Trainee: 'Amina', Score: '42', Status: 'late' },
-    { Trainee: 'Daniel', Score: '67', Status: 'ok' },
-    { Trainee: 'Mei', Score: '38', Status: 'ok' },
-    { Trainee: 'Rahim', Score: '', Status: 'ok' },
-    { Trainee: 'Zul', Score: '90', Status: 'ok' },
+    { Item: 'Amina', Stock: '42', Status: 'late' },
+    { Item: 'Daniel', Stock: '67', Status: 'ok' },
+    { Item: 'Mei', Stock: '38', Status: 'ok' },
+    { Item: 'Rahim', Stock: '', Status: 'ok' },
+    { Item: 'Zul', Stock: '90', Status: 'ok' },
   ],
 };
 const ctx: RunContext = {
-  listDatasets: async () => [{ id: 1, name: 'Training results', filename: 'results.csv' }],
+  listDatasets: async () => [{ id: 1, name: 'Stock list', filename: 'results.csv' }],
   loadDataset: async () => results,
   saveTable: async () => {},
   fetchJson: async () => [],
@@ -32,8 +32,8 @@ const run = (steps: Step[]) => runFlow(steps, ctx, quiet, { dryRun: true });
 
 const FLOW = [
   step('r', 'READ_CSV', { file: 'results' }),
-  step('f', 'FILTER', { condition: 'score >= 90 or score < 40' }),
-  step('t', 'TRANSFORM', { operation: 'select columns trainee, score' }),
+  step('f', 'FILTER', { condition: 'stock >= 90 or stock < 40' }),
+  step('t', 'TRANSFORM', { operation: 'select columns item, stock' }),
   step('o', 'OUTPUT', { format: 'table' }),
 ];
 
@@ -43,10 +43,10 @@ test('assumptions are read from the steps and the run: source, meaning at the li
   const result = await run(FLOW);
   const texts = assumptionsFor(FLOW, result).map(a => a.text);
   assert.deepEqual(texts, [
-    'The data is the dataset “Training results” (5 rows).',
-    'Keep the rows where score is at least 90 or score is less than 40: a row exactly at the limit is kept; a row exactly at the limit is left out.',
-    '“score” means the column “Score”.',
-    'Only the columns Trainee, Score are kept; Status is left out of the result.',
+    'The data is the dataset “Stock list” (5 rows).',
+    'Keep the rows where stock is at least 90 or stock is less than 40: a row exactly at the limit is kept; a row exactly at the limit is left out.',
+    '“stock” means the column “Stock”.',
+    'Only the columns Item, Stock are kept; Status is left out of the result.',
   ]);
 });
 
@@ -56,7 +56,7 @@ test('approval stays closed until critical exceptions are accepted with a reason
   const d: ReviewDecisions = emptyDecisions();
   let gate = reviewGate(result, assumptions, d);
   assert.equal(gate.canApprove, false);
-  assert.equal(gate.openCritical.length, 1);                 // Rahim's blank score
+  assert.equal(gate.openCritical.length, 1);                 // Rahim's blank stock
   assert.equal(gate.unconfirmed.length, 4);
 
   d.accepted[gate.openCritical[0].id] = 'ok';                // too short to count as a reason
@@ -74,7 +74,7 @@ test('an approval cannot skip the gate, and it records fingerprints, decisions a
   await assert.rejects(approve(FLOW, result, assumptions, emptyDecisions(), 'Jean'), /cannot be approved yet/);
 
   const d = emptyDecisions();
-  d.accepted[result.exceptions.find(e => e.severity === 'critical')!.id] = 'Absent trainee, checked by hand';
+  d.accepted[result.exceptions.find(e => e.severity === 'critical')!.id] = 'Absent item, checked by hand';
   for (const a of assumptions) d.confirmed[a.id] = true;
   const rec = await approve(FLOW, result, assumptions, d, ' Jean ', 1_700_000_000_000);
   assert.equal(rec.approver, 'Jean');
@@ -82,7 +82,7 @@ test('an approval cannot skip the gate, and it records fingerprints, decisions a
   assert.equal(rec.inputHash, await tableHash(results));
   assert.equal(rec.outputHash, await tableHash(result));
   assert.deepEqual(rec.counts, { total: 5, kept: 2, excluded: 2, flagged: 1 });
-  assert.deepEqual(rec.resolutions.map(x => x.note), ['Absent trainee, checked by hand']);
+  assert.deepEqual(rec.resolutions.map(x => x.note), ['Absent item, checked by hand']);
   assert.equal(rec.assumptions.length, 4);
   assert.deepEqual(readApproval(JSON.parse(JSON.stringify(rec))), rec);
   assert.equal(readApproval({ approvedAt: 'yesterday' }), null);
@@ -92,7 +92,7 @@ test('fingerprints: names and positions do not change the workflow hash; paramet
   assert.equal(await sha256('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
   const renamed = FLOW.map(s => ({ ...s, name: 'x', position: { x: 1, y: 2 } }));
   assert.equal(await workflowHash(renamed), await workflowHash(FLOW));
-  const edited = FLOW.map(s => (s.id === 'f' ? { ...s, config: { condition: 'score >= 80' } } : s));
+  const edited = FLOW.map(s => (s.id === 'f' ? { ...s, config: { condition: 'stock >= 80' } } : s));
   assert.notEqual(await workflowHash(edited), await workflowHash(FLOW));
   assert.notEqual(await tableHash({ ...results, rows: results.rows.slice(1) }), await tableHash(results));
 });
@@ -119,7 +119,7 @@ test('signals: run errors, empty results, skipped steps and filters that keep ev
   assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'results' }), step('f', 'FILTER', { condition: 'results < 50' })]), ['run_error']);
   assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'results' }), step('f', 'FILTER', { condition: 'status != gone' })]), ['filter_kept_all']);
   assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'results' }), step('t', 'TRANSFORM', { operation: 'group by status' })]), ['skipped_step']);
-  assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'results' }), step('f', 'FILTER', { condition: 'score < 50' })]), ['undecided_rows']);
+  assert.deepEqual(await kinds([step('r', 'READ_CSV', { file: 'results' }), step('f', 'FILTER', { condition: 'stock < 50' })]), ['undecided_rows']);
 });
 
 /* ---------------- the agent loop ---------------- */
@@ -134,19 +134,19 @@ test('agent: a clean first run stops at once, and nothing is sent to the AI', as
   assert.equal(asked, 0);
   assert.equal(r.rounds.length, 1);
   assert.equal(r.rounds[0].sent, '');
-  assert.match(r.rounds[0].detail, /could not be checked.*you decide/);   // the blank score is left to the reviewer
+  assert.match(r.rounds[0].detail, /could not be checked.*you decide/);   // the blank stock is left to the reviewer
 });
 
 test('agent: a failing plan is revised from the observation, run again, and the change is described from the steps', async () => {
   const broken = [step('r', 'READ_CSV', { file: 'results' }), step('f', 'FILTER', { condition: 'results < 50' }), step('o', 'OUTPUT', { format: 'table' })];
-  const fixed = [broken[0], { ...broken[1], id: 'new-id', config: { condition: 'score < 50' } }, broken[2]];
+  const fixed = [broken[0], { ...broken[1], id: 'new-id', config: { condition: 'stock < 50' } }, broken[2]];
   const sent: string[] = [];
   const r = await checkByRunning(broken, { test: testWith, revise: async (_s, observation) => { sent.push(observation); return reply(fixed); } });
   assert.equal(r.status, 'clean');
   assert.deepEqual(r.rounds.map(x => x.outcome), ['revised', 'clean']);
   assert.match(sent[0], /There is no column “results”/);
   assert.equal(r.steps[1].id, 'f');                                       // the edited step keeps its identity
-  assert.match(r.rounds[0].detail, /Changed a step\. It now says: Keeps only the rows where score is less than 50\./);
+  assert.match(r.rounds[0].detail, /Changed a step\. It now says: Keeps only the rows where stock is less than 50\./);
 });
 
 test('agent: it stops when the model keeps the plan, returns something invalid, or fails; and after the revision limit', async () => {
@@ -179,17 +179,17 @@ test('numbers that read back unchanged become numbers; anything else stays text'
 test('the workbook opens with the app’s own Excel reader and holds the result with source rows', async () => {
   const result = await run(FLOW);
   const assumptions = assumptionsFor(FLOW, result);
-  const bytes = buildReport({ flowName: 'Top and bottom', request: 'Trainees at 90 or more, or below 40', steps: FLOW, result, assumptions, decisions: emptyDecisions(), approval: null, checks: [], madeAt: new Date(0) });
+  const bytes = buildReport({ flowName: 'Top and bottom', request: 'Items at 90 or more, or below 40', steps: FLOW, result, assumptions, decisions: emptyDecisions(), approval: null, checks: [], madeAt: new Date(0) });
   const back = parseXlsx(bytes);   // the first sheet with data: the result
-  assert.deepEqual(back.columns, ['Source row', 'Trainee', 'Score']);
-  assert.deepEqual(back.rows.map(r => [r['Source row'], r.Trainee, r.Score]), [['3', 'Mei', '38'], ['5', 'Zul', '90']]);
+  assert.deepEqual(back.columns, ['Source row', 'Item', 'Stock']);
+  assert.deepEqual(back.rows.map(r => [r['Source row'], r.Item, r.Stock]), [['3', 'Mei', '38'], ['5', 'Zul', '90']]);
 
   const zip = unzipSync(bytes);
   const workbook = strFromU8(zip['xl/workbook.xml']);
   assert.match(workbook, /name="Result".*name="Review".*name="Method"/);
   const review = strFromU8(zip['xl/worksheets/sheet2.xml']);
   assert.match(review, /DRAFT: not approved/);
-  assert.match(review, /left out because Score is blank/);
+  assert.match(review, /left out because Stock is blank/);
   assert.match(review, />OPEN</);
 });
 

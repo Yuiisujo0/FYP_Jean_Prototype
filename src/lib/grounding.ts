@@ -99,7 +99,7 @@ const FILLER = new Set(('a an the of in on at to for from by with and or not no 
   + 'everything anything something everyone rows row records record data table tables result results entries entry information info file sheet').split(' '));
 /** The words of a text that say what it is about: no filler, no numbers. */
 const contentWords = (text: string): string[] => norm(text).split(' ').filter(w => w.length > 2 && !FILLER.has(w) && !/^[0-9]+$/.test(w));
-/** A word and its singular forms, so "employees", "employee" and "scores", "score" meet. */
+/** A word and its singular forms, so "employees", "employee" and "items", "item" meet. */
 const forms = (w: string): string[] => {
   const out = [w];
   if (w.endsWith('ies')) out.push(`${w.slice(0, -3)}y`);

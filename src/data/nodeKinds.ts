@@ -42,7 +42,7 @@ export const NODE_KINDS: NodeKind[] = [
     type: 'FILTER', label: 'Filter', category: 'transform',
     blurb: 'Keep rows that match a rule',
     defaultName: 'Filter records', defaultDescription: 'Keep records that match a condition.',
-    defaultConfig: { condition: 'score < 50' }, required: ['condition'],
+    defaultConfig: { condition: 'stock < 5' }, required: ['condition'],
   },
   {
     type: 'TRANSFORM', label: 'Transform', category: 'transform',

@@ -77,9 +77,9 @@ export const contract: Contract = {
    "optional": [],
    "isSource": false,
    "defaultConfig": {
-    "condition": "score < 50"
+    "condition": "stock < 5"
    },
-   "hint": "condition compares column names with values using < <= > >= == != contains in, joined by and / or, with brackets. Examples: score < 50 ; status == shipped and quantity >= 20 ; region in (South, West) ; salary between 4000 and 6000. Put brackets around an or: quantity >= 20 and (region == South or region == West). It is not SQL: no SELECT, no subqueries."
+   "hint": "condition compares column names with values using < <= > >= == != contains in, joined by and / or, with brackets. Examples: stock < 5 ; status == shipped and quantity >= 20 ; region in (South, West) ; salary between 4000 and 6000. Put brackets around an or: quantity >= 20 and (region == South or region == West). It is not SQL: no SELECT, no subqueries."
   },
   {
    "type": "TRANSFORM",
@@ -331,7 +331,7 @@ export const contract: Contract = {
    "steps"
   ]
  },
- "catalogueWithHints": "- INPUT: Receive data to start a flow. Can start a workflow. Parameters: source (required).\n- READ_FILE: Load a file from disk. Can start a workflow. Parameters: file (required).\n- READ_CSV: Read rows from a CSV table. Can start a workflow. Parameters: file (required), delimiter (optional). file is the name of an uploaded dataset.\n- LLM: Process text with a local model. Parameters: task (optional).\n- FILTER: Keep rows that match a rule. Parameters: condition (required). condition compares column names with values using < <= > >= == != contains in, joined by and / or, with brackets. Examples: score < 50 ; status == shipped and quantity >= 20 ; region in (South, West) ; salary between 4000 and 6000. Put brackets around an or: quantity >= 20 and (region == South or region == West). It is not SQL: no SELECT, no subqueries.\n- TRANSFORM: Reshape fields for the next step. Parameters: operation (required). operation is exactly one of: select columns a, b | drop columns a, b | rename a to b | sort by a | sort by a desc | limit N | remove duplicates | remove duplicates by a, b | group by a: count, average b, sum b, min b, max b | summarise: count, sum b | join other_dataset on a. Use one TRANSFORM step per operation. The N highest or lowest: sort by a desc (or sort by a), then limit N.\n- DATABASE: Save records to SQLite. Parameters: table (required).\n- HTTP_REQUEST: Fetch data from an endpoint. Can start a workflow. Parameters: method (required), url (required).\n- OUTPUT: Deliver the final result. Parameters: format (required).",
+ "catalogueWithHints": "- INPUT: Receive data to start a flow. Can start a workflow. Parameters: source (required).\n- READ_FILE: Load a file from disk. Can start a workflow. Parameters: file (required).\n- READ_CSV: Read rows from a CSV table. Can start a workflow. Parameters: file (required), delimiter (optional). file is the name of an uploaded dataset.\n- LLM: Process text with a local model. Parameters: task (optional).\n- FILTER: Keep rows that match a rule. Parameters: condition (required). condition compares column names with values using < <= > >= == != contains in, joined by and / or, with brackets. Examples: stock < 5 ; status == shipped and quantity >= 20 ; region in (South, West) ; salary between 4000 and 6000. Put brackets around an or: quantity >= 20 and (region == South or region == West). It is not SQL: no SELECT, no subqueries.\n- TRANSFORM: Reshape fields for the next step. Parameters: operation (required). operation is exactly one of: select columns a, b | drop columns a, b | rename a to b | sort by a | sort by a desc | limit N | remove duplicates | remove duplicates by a, b | group by a: count, average b, sum b, min b, max b | summarise: count, sum b | join other_dataset on a. Use one TRANSFORM step per operation. The N highest or lowest: sort by a desc (or sort by a), then limit N.\n- DATABASE: Save records to SQLite. Parameters: table (required).\n- HTTP_REQUEST: Fetch data from an endpoint. Can start a workflow. Parameters: method (required), url (required).\n- OUTPUT: Deliver the final result. Parameters: format (required).",
  "catalogueWithoutHints": "- INPUT: Receive data to start a flow. Can start a workflow. Parameters: source (required).\n- READ_FILE: Load a file from disk. Can start a workflow. Parameters: file (required).\n- READ_CSV: Read rows from a CSV table. Can start a workflow. Parameters: file (required), delimiter (optional).\n- LLM: Process text with a local model. Parameters: task (optional).\n- FILTER: Keep rows that match a rule. Parameters: condition (required).\n- TRANSFORM: Reshape fields for the next step. Parameters: operation (required).\n- DATABASE: Save records to SQLite. Parameters: table (required).\n- HTTP_REQUEST: Fetch data from an endpoint. Can start a workflow. Parameters: method (required), url (required).\n- OUTPUT: Deliver the final result. Parameters: format (required).",
  "exampleRequest": "Pull weather data from an API and show just the temperature and city",
  "exampleAnswer": "{\"steps\":[{\"type\":\"HTTP_REQUEST\",\"method\":\"GET\",\"url\":\"https://api.example.com/weather\"},{\"type\":\"TRANSFORM\",\"operation\":\"select temperature, city\"},{\"type\":\"OUTPUT\",\"format\":\"table\"}]}",
@@ -600,19 +600,19 @@ export const contract: Contract = {
   {
    "id": "S1",
    "title": "Filter rows below a number",
-   "request": "List the trainees who scored below 50",
+   "request": "List the items with stock below 5",
    "steps": [
     {
      "type": "READ_CSV",
      "config": {
-      "file": "training_results",
+      "file": "inventory",
       "delimiter": ","
      }
     },
     {
      "type": "FILTER",
      "config": {
-      "condition": "score < 50"
+      "condition": "stock < 5"
      }
     },
     {
@@ -627,31 +627,31 @@ export const contract: Contract = {
   {
    "id": "S2",
    "title": "Filter, keep some columns, sort",
-   "request": "Show only the name and score of trainees with 80 or more, highest first",
+   "request": "Show only the item and stock of items with 40 or more, highest first",
    "steps": [
     {
      "type": "READ_CSV",
      "config": {
-      "file": "training_results",
+      "file": "inventory",
       "delimiter": ","
      }
     },
     {
      "type": "FILTER",
      "config": {
-      "condition": "score >= 80"
+      "condition": "stock >= 40"
      }
     },
     {
      "type": "TRANSFORM",
      "config": {
-      "operation": "select columns name, score"
+      "operation": "select columns item, stock"
      }
     },
     {
      "type": "TRANSFORM",
      "config": {
-      "operation": "sort by score desc"
+      "operation": "sort by stock desc"
      }
     },
     {
@@ -666,25 +666,25 @@ export const contract: Contract = {
   {
    "id": "S3",
    "title": "Filter on two conditions and save to a table",
-   "request": "Find TR101 trainees with attendance under 70 and save them to a table called at_risk",
+   "request": "Find Tools items with stock under 20 and save them to a table called reorder_now",
    "steps": [
     {
      "type": "READ_CSV",
      "config": {
-      "file": "training_results",
+      "file": "inventory",
       "delimiter": ","
      }
     },
     {
      "type": "FILTER",
      "config": {
-      "condition": "course == TR101 and attendance_pct < 70"
+      "condition": "category == Tools and stock < 20"
      }
     },
     {
      "type": "DATABASE",
      "config": {
-      "table": "at_risk"
+      "table": "reorder_now"
      }
     },
     {
@@ -699,25 +699,25 @@ export const contract: Contract = {
   {
    "id": "S6",
    "title": "Rename a column and keep two columns",
-   "request": "Rename the score column to results and keep only the name and results",
+   "request": "Rename the stock column to on_hand and keep only the item and on_hand",
    "steps": [
     {
      "type": "READ_CSV",
      "config": {
-      "file": "training_results",
+      "file": "inventory",
       "delimiter": ","
      }
     },
     {
      "type": "TRANSFORM",
      "config": {
-      "operation": "rename score to results"
+      "operation": "rename stock to on_hand"
      }
     },
     {
      "type": "TRANSFORM",
      "config": {
-      "operation": "select columns name, results"
+      "operation": "select columns item, on_hand"
      }
     },
     {

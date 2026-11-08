@@ -43,6 +43,11 @@ test('the repair message is identical', () => {
   assert.equal(repairMessage(golden.repairMessage.issues as never), golden.repairMessage.expected);
 });
 
+test('the prompt lists a seventh dataset', () => {
+  const datasets = Array.from({ length: 7 }, (_, i) => ({ name: `table_${i + 1}`, columns: ['id'] }));
+  assert.match(buildMessages('anything', [], datasets)[0].content, /- table_7: columns id/);
+});
+
 test('the contract carries the schema, catalogue, example and library', () => {
   assert.equal(contract.kinds.length, 9);
   assert.equal(contract.patterns.length, 17);
@@ -52,7 +57,7 @@ test('the contract carries the schema, catalogue, example and library', () => {
 
 /* ---------------- the generation loop, with a fake AI ---------------- */
 
-const GOOD = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'results', delimiter: ',' }, { type: 'FILTER', condition: 'score < 50' }, { type: 'OUTPUT', format: 'table' }] });
+const GOOD = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'results', delimiter: ',' }, { type: 'FILTER', condition: 'stock < 50' }, { type: 'OUTPUT', format: 'table' }] });
 const BLANK_FILTER = JSON.stringify({ steps: [{ type: 'READ_CSV', file: 'results', delimiter: ',' }, { type: 'FILTER', condition: '' }, { type: 'OUTPUT', format: 'table' }] });
 const reply = (content: string, neurons = 5) => ({ response: content, usage: { prompt_tokens: 700, completion_tokens: 50, neurons } });
 
@@ -73,7 +78,7 @@ const MODELS = ['@cf/primary', '@cf/fallback'];
 
 test('a good first answer is used as is', async () => {
   const ai = fakeAi([reply(GOOD)]);
-  const r = await generateWorkflow('Which trainees scored below 50?', { ai, models: MODELS });
+  const r = await generateWorkflow('Which items have stock below 50?', { ai, models: MODELS });
   assert.equal(r.valid, true);
   assert.equal(r.attempts.length, 1);
   assert.equal(r.model, '@cf/primary');

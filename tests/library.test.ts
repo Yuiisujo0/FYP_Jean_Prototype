@@ -17,62 +17,62 @@ const fresh = () => { let t = 1000; return createLibrary(memoryStore(), () => ++
 
 test('an Excel file is stored with blank cells, skipped blank rows and ISO dates', async () => {
   const lib = fresh();
-  const d = await lib.upload(sample('training_results.xlsx'), { name: 'results' });
-  assert.deepEqual(d.columns, ['trainee_id', 'name', 'course', 'score', 'attendance_pct', 'submitted']);
+  const d = await lib.upload(sample('stock_list.xlsx'), { name: 'results' });
+  assert.deepEqual(d.columns, ['sku', 'name', 'category', 'stock', 'reorder_level', 'last_counted']);
   assert.equal(d.rowCount, 40);
-  assert.equal(d.rows[6].score, '');
-  assert.match(d.rows[0].score, /^\d+$/);
-  assert.equal(d.rows[0].submitted.length, 10);
+  assert.equal(d.rows[6].stock, '');
+  assert.match(d.rows[0].stock, /^\d+$/);
+  assert.equal(d.rows[0].last_counted.length, 10);
 });
 
 test('inspect reports matches without saving', async () => {
   const lib = fresh();
-  await lib.upload(sample('training_results.xlsx'), { name: 'training_results' });
-  const info = await lib.inspect(sample('training_results_next_quarter.xlsx'));
+  await lib.upload(sample('stock_list.xlsx'), { name: 'stock_list' });
+  const info = await lib.inspect(sample('stock_list_next_month.xlsx'));
   assert.equal(info.rowCount, 30);
-  assert.equal(info.sheet, 'Results');
+  assert.equal(info.sheet, 'Stock');
   assert.equal(info.preview.length, 5);
   assert.equal(info.matches.length, 1);
   assert.deepEqual([info.matches[0].sameColumns, info.matches[0].sameName], [true, false]);
   assert.equal((await lib.list()).length, 1);                                   // nothing new was saved
-  assert.deepEqual((await lib.inspect(sample('courses.xlsx'))).matches, []);   // unrelated data matches nothing
+  assert.deepEqual((await lib.inspect(sample('categories.xlsx'))).matches, []);   // unrelated data matches nothing
 });
 
 test('the same file name counts as the same name', async () => {
   const lib = fresh();
-  await lib.upload(sample('training_results.xlsx'), { name: 'training_results' });
-  const info = await lib.inspect(sample('training_results.xlsx'));
+  await lib.upload(sample('stock_list.xlsx'), { name: 'stock_list' });
+  const info = await lib.inspect(sample('stock_list.xlsx'));
   assert.equal(info.matches[0].sameName, true);
 });
 
 test('add rows works even when the headers are typed differently, and keeps the dataset’s own column names', async () => {
   const lib = fresh();
-  const target = await lib.upload(sample('training_results.xlsx'), { name: 'results' });
-  const merged = await lib.upload(sample('training_results_other_headers.xlsx'), { mode: 'append', targetId: target.id });
+  const target = await lib.upload(sample('stock_list.xlsx'), { name: 'results' });
+  const merged = await lib.upload(sample('stock_list_other_headers.xlsx'), { mode: 'append', targetId: target.id });
   assert.equal(merged.rowCount, 48);
   assert.equal(merged.rows.length, 48);
   assert.deepEqual(merged.columns, target.columns);
-  assert.match(merged.rows.at(-1)!.attendance_pct, /^\d+$/);
+  assert.match(merged.rows.at(-1)!.reorder_level, /^\d+$/);
 });
 
 test('add rows refuses different columns, and a missing target', async () => {
   const lib = fresh();
-  const target = await lib.upload(sample('training_results.xlsx'), { name: 'results' });
-  await assert.rejects(lib.upload(sample('courses.xlsx'), { mode: 'append', targetId: target.id }), /columns do not match/);
-  await assert.rejects(lib.upload(sample('courses.xlsx'), { mode: 'append', targetId: 999 }), /not found/);
+  const target = await lib.upload(sample('stock_list.xlsx'), { name: 'results' });
+  await assert.rejects(lib.upload(sample('categories.xlsx'), { mode: 'append', targetId: target.id }), /columns do not match/);
+  await assert.rejects(lib.upload(sample('categories.xlsx'), { mode: 'append', targetId: 999 }), /not found/);
 });
 
 test('new refuses an existing name; replace swaps the data and keeps the id', async () => {
   const lib = fresh();
-  const first = await lib.upload(sample('training_results.xlsx'), { name: 'results' });
-  await assert.rejects(lib.upload(sample('courses.xlsx'), { name: 'Results', mode: 'new' }), /already exists/);
-  const replaced = await lib.upload(sample('training_results_next_quarter.xlsx'), { name: 'results', mode: 'replace' });
+  const first = await lib.upload(sample('stock_list.xlsx'), { name: 'results' });
+  await assert.rejects(lib.upload(sample('categories.xlsx'), { name: 'Results', mode: 'new' }), /already exists/);
+  const replaced = await lib.upload(sample('stock_list_next_month.xlsx'), { name: 'results', mode: 'replace' });
   assert.equal(replaced.id, first.id);
   assert.equal(replaced.rowCount, 30);
   assert.equal(replaced.createdAt, first.createdAt);
   assert.ok(replaced.updatedAt > first.updatedAt);
   assert.equal((await lib.list()).length, 1);
-  await assert.rejects(lib.upload(sample('courses.xlsx'), { name: '   ' }), /Give the dataset a name/);
+  await assert.rejects(lib.upload(sample('categories.xlsx'), { name: '   ' }), /Give the dataset a name/);
 });
 
 test('delete removes the dataset, and the list is newest-updated first', async () => {
@@ -97,11 +97,11 @@ test('the list never carries rows, but get does', async () => {
 
 test('a workflow result is saved as a table, replacing earlier contents; an empty result is refused', async () => {
   const lib = fresh();
-  const t1 = await lib.saveTable('low_scores', { columns: ['name'], rows: [{ name: 'a' }, { name: 'b' }] });
-  const t2 = await lib.saveTable('low_scores', { columns: ['name'], rows: [{ name: 'c' }] });
+  const t1 = await lib.saveTable('low_stock', { columns: ['name'], rows: [{ name: 'a' }, { name: 'b' }] });
+  const t2 = await lib.saveTable('low_stock', { columns: ['name'], rows: [{ name: 'c' }] });
   assert.equal(t2.id, t1.id);
   assert.deepEqual(t2.rows, [{ name: 'c' }]);
-  assert.equal(t2.filename, 'low_scores.csv');
+  assert.equal(t2.filename, 'low_stock.csv');
   assert.throws(() => lib.saveTable('x', { columns: [], rows: [] }), /no columns/);
 });
 

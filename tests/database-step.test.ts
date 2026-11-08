@@ -25,8 +25,8 @@ function setup() {
   return { lib, ctx };
 }
 
-const results = 'name,score\nAmina,35\nBen,80\nChen,42\n';
-const flow = (table: string, mode?: string, cond = 'score < 50') => [
+const results = 'name,stock\nAmina,35\nBen,80\nChen,42\n';
+const flow = (table: string, mode?: string, cond = 'stock < 50') => [
   step('READ_CSV', { file: 'results' }), step('FILTER', { condition: cond }),
   step('DATABASE', mode === undefined ? { table } : { table, mode }), step('OUTPUT', { format: 'table' }),
 ];
@@ -68,10 +68,10 @@ test('append creates the table the first time, then adds the rows on each run', 
 test('append keeps the table’s own column names when the spelling differs, and refuses different columns without changing anything', async () => {
   const { lib, ctx } = setup();
   await lib.upload(csv('results.csv', results), { name: 'results' });
-  await lib.saveResult('log', { columns: ['Name', 'Score'], rows: [{ Name: 'Old', Score: '1' }] }, 'replace');
-  await runFlow(flow('log', 'append'), ctx, quiet);                       // name,score matches Name,Score once spelling is ignored
+  await lib.saveResult('log', { columns: ['Name', 'Stock'], rows: [{ Name: 'Old', Stock: '1' }] }, 'replace');
+  await runFlow(flow('log', 'append'), ctx, quiet);                       // name,stock matches Name,Stock once spelling is ignored
   const log = await rowsOf(lib, 'log');
-  assert.deepEqual(log.columns, ['Name', 'Score']);
+  assert.deepEqual(log.columns, ['Name', 'Stock']);
   assert.deepEqual(log.rows.map(r => r.Name), ['Old', 'Amina', 'Chen']);
 
   const select = [step('READ_CSV', { file: 'results' }), step('TRANSFORM', { operation: 'select columns name' }), step('DATABASE', { table: 'log', mode: 'append' }), step('OUTPUT', { format: 'table' })];
@@ -82,7 +82,7 @@ test('append keeps the table’s own column names when the spelling differs, and
 test('a workflow cannot replace data the user uploaded, but may add rows to it', async () => {
   const { lib, ctx } = setup();
   await lib.upload(csv('results.csv', results), { name: 'results' });
-  await lib.upload(csv('late.csv', 'name,score\nDewi,20\n'), { name: 'late' });
+  await lib.upload(csv('late.csv', 'name,stock\nDewi,20\n'), { name: 'late' });
   const readLate = (mode?: string) => [step('READ_CSV', { file: 'late' }), step('DATABASE', mode === undefined ? { table: 'results' } : { table: 'results', mode }), step('OUTPUT', { format: 'table' })];
 
   await assert.rejects(runFlow(readLate(), ctx, quiet), /data you uploaded.*append/);
@@ -116,7 +116,7 @@ test('a preview shows what append would do, saves nothing, and fails the same wa
   assert.ok(said.includes('Would create “log” with 2 rows (nothing is saved in a preview)'));
   assert.equal((await lib.list()).length, 1);
 
-  await lib.saveResult('log', { columns: ['name', 'score'], rows: [{ name: 'x', score: '1' }] }, 'replace');
+  await lib.saveResult('log', { columns: ['name', 'stock'], rows: [{ name: 'x', stock: '1' }] }, 'replace');
   said.length = 0;
   await runFlow(flow('log', 'append'), ctx, report, { dryRun: true });
   assert.ok(said.includes('Would add 2 rows to “log”, which would then have 3 rows (nothing is saved in a preview)'));
@@ -132,8 +132,8 @@ test('a preview shows what append would do, saves nothing, and fails the same wa
 
 test('uploads are never matched against saved results', async () => {
   const { lib } = setup();
-  await lib.saveResult('low', { columns: ['name', 'score'], rows: [{ name: 'a', score: '1' }] }, 'replace');
-  const info = await lib.inspect(csv('low.csv', 'name,score\nb,2\n'));
+  await lib.saveResult('low', { columns: ['name', 'stock'], rows: [{ name: 'a', stock: '1' }] }, 'replace');
+  const info = await lib.inspect(csv('low.csv', 'name,stock\nb,2\n'));
   assert.deepEqual(info.matches, []);
 });
 

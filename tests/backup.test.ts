@@ -14,18 +14,18 @@ const roundTrip = (b: unknown) => JSON.parse(JSON.stringify(b));   // what a dow
 
 test('a backup carries every dataset with its rows, without browser-local ids', async () => {
   const lib = fresh();
-  await lib.upload(csv('results.csv', 'name,score\nAda,90\nBen,\n'), { name: 'results' });
-  await lib.upload(csv('courses.csv', 'code\nCS1\n'), { name: 'courses' });
+  await lib.upload(csv('results.csv', 'name,stock\nAda,90\nBen,\n'), { name: 'results' });
+  await lib.upload(csv('categories.csv', 'code\nCS1\n'), { name: 'categories' });
   const b = buildBackup({ profile: { name: 'J' }, flows: [flow], knowledge: [], datasets: await lib.exportAll() });
   assert.equal(b.version, BACKUP_VERSION);
   assert.equal(b.datasets.length, 2);
   assert.deepEqual(Object.keys(b.datasets[0]).sort(), ['columns', 'filename', 'name', 'origin', 'rows']);   // no id or timestamps
-  assert.deepEqual(b.datasets.find(d => d.name === 'results')!.rows, [{ name: 'Ada', score: '90' }, { name: 'Ben', score: '' }]);
+  assert.deepEqual(b.datasets.find(d => d.name === 'results')!.rows, [{ name: 'Ada', stock: '90' }, { name: 'Ben', stock: '' }]);
 });
 
 test('restoring into an empty library brings the datasets back exactly', async () => {
   const source = fresh();
-  await source.upload(csv('results.csv', 'name,score\nAda,90\nBen,\n'), { name: 'results' });
+  await source.upload(csv('results.csv', 'name,stock\nAda,90\nBen,\n'), { name: 'results' });
   const file = roundTrip(buildBackup({ profile: null, flows: [flow], knowledge: [], datasets: await source.exportAll() }));
 
   const parsed = parseBackup(file);
@@ -34,15 +34,15 @@ test('restoring into an empty library brings the datasets back exactly', async (
   const [only] = await target.list();
   const restored = (await target.get(only.id))!;
   assert.equal(restored.name, 'results');
-  assert.deepEqual(restored.columns, ['name', 'score']);
-  assert.deepEqual(restored.rows, [{ name: 'Ada', score: '90' }, { name: 'Ben', score: '' }]);
+  assert.deepEqual(restored.columns, ['name', 'stock']);
+  assert.deepEqual(restored.rows, [{ name: 'Ada', stock: '90' }, { name: 'Ben', stock: '' }]);
 });
 
 test('restoring replaces a dataset of the same name (keeping its id) and leaves the others alone', async () => {
   const lib = fresh();
-  const results = await lib.upload(csv('results.csv', 'name,score\nOld,1\n'), { name: 'results' });
+  const results = await lib.upload(csv('results.csv', 'name,stock\nOld,1\n'), { name: 'results' });
   const other = await lib.upload(csv('other.csv', 'x\n1\n'), { name: 'other' });
-  const file = roundTrip(buildBackup({ profile: null, flows: [], knowledge: [], datasets: [{ id: 9, name: 'results', filename: 'results.csv', columns: ['name', 'score'], rows: [{ name: 'New', score: '2' }], rowCount: 1, createdAt: 0, updatedAt: 0 }] }));
+  const file = roundTrip(buildBackup({ profile: null, flows: [], knowledge: [], datasets: [{ id: 9, name: 'results', filename: 'results.csv', columns: ['name', 'stock'], rows: [{ name: 'New', stock: '2' }], rowCount: 1, createdAt: 0, updatedAt: 0 }] }));
   await lib.importAll(parseBackup(file).datasets!);
 
   const names = (await lib.list()).map(d => d.name).sort();

@@ -19,7 +19,6 @@ worker/.wrangler/
 worker/node_modules/
 
 # local-only: AI tooling, notes, drafts and design scratch (kept on disk, not published)
-.claude/
 .impeccable/
 docs/
 design-backups/

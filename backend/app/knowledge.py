@@ -20,7 +20,7 @@ KNOWLEDGE: list[KnowledgeEntry] = [
                    "A CSV reading step needs a file path, a delimiter, and a header row containing stable column names. Later steps refer to those column names, so keep them consistent."),
     KnowledgeEntry("filters", "Filter conditions", "Data preparation",
                    "Keep records that meet a clear, testable condition.",
-                   "Use explicit comparisons such as score < 50. Conditions should refer to fields that exist in the incoming records, and each filter should test one idea."),
+                   "Use explicit comparisons such as stock < 5. Conditions should refer to fields that exist in the incoming records, and each filter should test one idea."),
     KnowledgeEntry("records", "Saving structured records", "Storage patterns",
                    "Map selected fields into a predictable record shape.",
                    "Choose the destination table and name the fields that should be preserved for later review. Saving after filtering keeps the table small and relevant."),

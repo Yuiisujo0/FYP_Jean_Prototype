@@ -186,7 +186,7 @@ export function DataLibrary({ uploadRef }: { uploadRef: React.RefObject<HTMLInpu
           <EmptyState
             icon={<Database size={24} />}
             title="No data yet"
-            description="Drag CSV or Excel files here, or choose them. Upload once, for example your student marks. Workflows read the data from here, and you can replace it or add rows to it later."
+            description="Drag CSV or Excel files here, or choose them. Upload once, for example your stock list. Workflows read the data from here, and you can replace it or add rows to it later."
             action={<Button variant="primary" icon={<Upload size={16} />} onClick={() => uploadRef.current?.click()}>Choose files</Button>}
           />
         </div>

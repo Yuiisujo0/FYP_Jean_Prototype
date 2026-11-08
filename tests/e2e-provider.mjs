@@ -38,7 +38,7 @@ await page.screenshot({ path: 'tests/shots/provider-key.png' });
 // generate through Ollama: the page must call Ollama directly and never the jwork service
 await page.getByRole('button', { name: 'Ollama', exact: true }).click();
 await page.goto(`${base}/generate`, { waitUntil: "domcontentloaded" });
-await page.getByPlaceholder(/Read a CSV of trainee scores/).fill('Read a CSV of trainee scores and keep everyone below 50');
+await page.getByPlaceholder(/Read a CSV of item counts/).fill('Read a CSV of item counts and keep everyone below 50');
 await page.getByRole('button', { name: /build workflow/i }).click();
 await page.waitForURL(/\/workflows\//, { timeout: 120000 }).catch(() => {});
 console.log('POSTs:', [...new Set(sent)]);

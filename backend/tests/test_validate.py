@@ -8,7 +8,7 @@ def step(id: str, type: str, **config: str) -> Step:
 
 
 def test_valid_linear_workflow_has_no_errors():
-    steps = [step("a", "READ_CSV", file="x.csv"), step("b", "FILTER", condition="score < 50"), step("c", "OUTPUT", format="table")]
+    steps = [step("a", "READ_CSV", file="x.csv"), step("b", "FILTER", condition="stock < 50"), step("c", "OUTPUT", format="table")]
     assert error_count(validate_workflow(steps, chain_edges(steps))) == 0
 
 

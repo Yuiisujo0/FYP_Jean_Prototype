@@ -37,10 +37,10 @@ const find = async name => (await library()).find(d => d.name === name);
 const flowFile = 'tests/shots/db-flow.jwork.json';
 const step = (id, type, name, config) => ({ id, type, name, description: name, config });
 writeFileSync(flowFile, JSON.stringify({
-  format: 'jwork.workflow', version: 1, name: 'Log low scores', description: 'Adds low scores to a log',
+  format: 'jwork.workflow', version: 1, name: 'Log low counts', description: 'Adds low counts to a log',
   nodes: [
-    step('a', 'READ_CSV', 'Read results', { file: 'training_results' }),
-    step('b', 'FILTER', 'Low scores', { condition: 'score < 50' }),
+    step('a', 'READ_CSV', 'Read results', { file: 'stock_list' }),
+    step('b', 'FILTER', 'Low counts', { condition: 'stock < 50' }),
     step('c', 'DATABASE', 'Log them', { table: 'low_log', mode: 'append' }),
     step('d', 'OUTPUT', 'Show', { format: 'table' }),
   ],
@@ -62,9 +62,9 @@ try {
   // 1. Upload data, import a workflow whose Database step appends.
   await page.goto(`${base}/knowledge?tab=data`);
   await page.getByText('No data yet').waitFor();
-  await page.locator('input[type=file]').first().setInputFiles(['sample_data/training_results.xlsx', 'sample_data/courses.xlsx']);
-  await page.locator('.kb__row', { hasText: 'courses' }).waitFor();
-  const results = await find('training_results');
+  await page.locator('input[type=file]').first().setInputFiles(['sample_data/stock_list.xlsx', 'sample_data/categories.xlsx']);
+  await page.locator('.kb__row', { hasText: 'categories' }).waitFor();
+  const results = await find('stock_list');
   assert.equal(results.origin, 'upload');
 
   await page.goto(`${base}/workflows`);
@@ -103,7 +103,7 @@ try {
   await page.getByRole('heading', { name: 'Saved by workflows' }).waitFor();
   const yours = await page.locator('section[aria-label="Your data"] .kb__row').allInnerTexts();
   const saved = await page.locator('section[aria-label="Saved by workflows"] .kb__row').allInnerTexts();
-  assert.ok(yours.some(t => /training_results/.test(t)) && yours.some(t => /courses/.test(t)));
+  assert.ok(yours.some(t => /stock_list/.test(t)) && yours.some(t => /categories/.test(t)));
   assert.ok(!yours.some(t => /low_log/.test(t)), 'a saved result is not listed with uploads');
   assert.equal(saved.length, 1);
   assert.match(saved[0], /low_log[\s\S]*saved by a workflow/);
@@ -113,7 +113,7 @@ try {
   log('Data page: uploads under "Your data", low_log under "Saved by workflows" (no update-with-file button)');
 
   // 5. A new upload with the same columns as the result is not offered as an update to it.
-  await page.locator('input[type=file]').first().setInputFiles('sample_data/training_results_next_quarter.xlsx');
+  await page.locator('input[type=file]').first().setInputFiles('sample_data/stock_list_next_month.xlsx');
   await page.getByRole('dialog').waitFor();
   const dialog = await page.getByRole('dialog').innerText();
   assert.ok(!/low_log/.test(dialog), 'the upload dialog must not offer the saved result as a target');
@@ -122,7 +122,7 @@ try {
 
   // 6. Switch to replace: the table is replaced, not added to.
   await page.goto(`${base}/workflows`);
-  await page.getByText('Log low scores').first().click();
+  await page.getByText('Log low counts').first().click();
   await page.waitForURL(/\/editor\//);
   await toSteps();
   await page.waitForTimeout(600);
@@ -137,13 +137,13 @@ try {
 
   // 7. Pointing the step at uploaded data in replace mode is refused, and the upload is untouched.
   await page.locator('.react-flow__node', { hasText: 'Log them' }).click();
-  await page.locator('#cfg-table').fill('courses');
+  await page.locator('#cfg-table').fill('categories');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
   await page.locator('.react-flow__node', { hasText: 'Log them' }).getByText(/data you uploaded/).waitFor({ timeout: 10000 });
-  assert.equal((await find('courses')).rows, 3);
-  assert.equal((await find('courses')).origin, 'upload');
+  assert.equal((await find('categories')).rows, 3);
+  assert.equal((await find('categories')).origin, 'upload');
   await shot('d3-refused');
-  log('replace onto the uploaded dataset "courses" was refused; courses still has 3 rows');
+  log('replace onto the uploaded dataset "categories" was refused; categories still has 3 rows');
 
   console.log('\nDATABASE E2E PASSED');
 } catch (e) {

@@ -45,11 +45,11 @@ try {
   // 1. Two datasets in the library.
   await page.goto(`${base}/knowledge?tab=data`);
   await page.getByText('No data yet').waitFor();
-  await page.locator('input[type=file]').first().setInputFiles(['sample_data/training_results.xlsx', 'sample_data/courses.xlsx']);
-  await page.locator('.kb__row', { hasText: 'courses' }).waitFor();
-  await page.locator('.kb__row', { hasText: 'training_results' }).waitFor();
+  await page.locator('input[type=file]').first().setInputFiles(['sample_data/stock_list.xlsx', 'sample_data/categories.xlsx']);
+  await page.locator('.kb__row', { hasText: 'categories' }).waitFor();
+  await page.locator('.kb__row', { hasText: 'stock_list' }).waitFor();
   const before = await readAll();
-  assert.deepEqual(before.map(d => d.name), ['courses', 'training_results']);
+  assert.deepEqual(before.map(d => d.name), ['categories', 'stock_list']);
   log('library has', before.map(d => `${d.name} (${d.rowCount} rows)`).join(', '));
 
   // 2. The Data page points to the backup.
@@ -69,8 +69,8 @@ try {
   const file = JSON.parse(readFileSync(backupPath, 'utf8'));
   assert.equal(file.format, 'jwork.workspace');
   assert.equal(file.version, 2);
-  assert.deepEqual(file.datasets.map(d => d.name).sort(), ['courses', 'training_results']);
-  assert.equal(file.datasets.find(d => d.name === 'training_results').rows.length, 40);
+  assert.deepEqual(file.datasets.map(d => d.name).sort(), ['categories', 'stock_list']);
+  assert.equal(file.datasets.find(d => d.name === 'stock_list').rows.length, 40);
   await page.getByText(/Backup downloaded \(.*2 datasets\)/).waitFor();
   await page.getByText(/Last backup: /).waitFor();
   log('backup file: version', file.version, '|', file.datasets.map(d => `${d.name}: ${d.rows.length} rows`).join(', '), '|', Math.round(readFileSync(backupPath).length / 1024), 'KB');

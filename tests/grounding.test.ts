@@ -116,7 +116,7 @@ test('"not" before a value the request names is noticed (the negation pattern on
 });
 
 test('missing join: a column only another dataset has, with one shared column, and no join step', () => {
-  const others = [{ name: 'suppliers', columns: ['supplier', 'country', 'lead_days'] }, { name: 'courses', columns: ['course', 'title'] }];
+  const others = [{ name: 'suppliers', columns: ['supplier', 'country', 'lead_days'] }, { name: 'categories', columns: ['category', 'title'] }];
   const f = groundingFindings('Show each item with the country of its supplier', [read, out], input, others);
   assert.deepEqual(f.filter(x => x.kind === 'missing_join').map(x => [x.dataset, x.column, x.other]), [['suppliers', 'country', 'supplier']]);
   // already joined, or the column is not named: quiet

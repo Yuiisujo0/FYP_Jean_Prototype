@@ -28,7 +28,7 @@ const readStored = () => page.evaluate(() => new Promise((resolve, reject) => {
     const tx = req.result.transaction(['info', 'rows']);
     const all = tx.objectStore('info').getAll();
     all.onsuccess = () => {
-      const info = all.result.find(d => d.name === 'training_results');
+      const info = all.result.find(d => d.name === 'stock_list');
       const rows = tx.objectStore('rows').get(info.id);
       rows.onsuccess = () => resolve(rows.result);
     };
@@ -48,11 +48,11 @@ try {
   // 0. Data.
   await page.goto(`${base}/knowledge?tab=data`);
   await page.getByText('No data yet').waitFor();
-  await page.locator('input[type=file]').first().setInputFiles(['sample_data/training_results.xlsx']);
-  await page.locator('.kb__row', { hasText: 'training_results' }).waitFor();
+  await page.locator('input[type=file]').first().setInputFiles(['sample_data/stock_list.xlsx']);
+  await page.locator('.kb__row', { hasText: 'stock_list' }).waitFor();
   const rows = await readStored();
   const values = [...new Set(rows.flatMap(r => Object.values(r)).filter(v => typeof v === 'string' && v.length >= 3 && !/^\d+$/.test(v)))];
-  log(`uploaded training_results: ${rows.length} rows, ${values.length} distinct text values to watch for on the wire`);
+  log(`uploaded stock_list: ${rows.length} rows, ${values.length} distinct text values to watch for on the wire`);
 
   // 1. The agent revises a plan that fails when run. The model's first draft is replaced by a broken one (wrong column),
   //    so the run fails and the observation goes to /api/revise; the revision itself comes from the real model.
@@ -64,7 +64,7 @@ try {
     await route.fulfill({ response: res, json: body });
   });
   await page.goto(`${base}/generate`);
-  await page.locator('#prompt').fill('Find the trainees in my training_results with a score below 50');
+  await page.locator('#prompt').fill('Find the items in my stock_list with stock below 50');
   await page.getByRole('button', { name: /build workflow/i }).click();
   await page.getByText(/Testing it on your data/).waitFor({ timeout: 120000 });
   await shot('r1-agent-testing');
@@ -91,29 +91,29 @@ try {
   // 2. Make sure the workflow is the intended one (whatever the model revised it to), then run and review.
   const plain = await page.locator('.check__explain li').allInnerTexts();
   log('workflow after the agent:', JSON.stringify(plain));
-  if (!plain.some(s => /score is less than 50/.test(s))) {
-    log('the revision did not land on “score < 50”; setting it by hand for the review part of the test');
+  if (!plain.some(s => /stock is less than 50/.test(s))) {
+    log('the revision did not land on “stock < 50”; setting it by hand for the review part of the test');
     await page.locator('.react-flow__node', { hasText: /FILTER/i }).first().click();
     const cond = page.locator('.editor__panel textarea, .editor__panel input').filter({ hasText: '' }).first();
-    await cond.fill('score < 50');
+    await cond.fill('stock < 50');
     await page.getByRole('tab', { name: /Check/ }).click();
   }
   await page.getByRole('button', { name: /Run workflow|Run again/ }).click();
   await page.getByText('Download CSV').waitFor({ timeout: 20000 });
   await page.locator('.review').waitFor();
-  const blank = rows.filter(r => (r.score ?? '').trim() === '').length;
-  const below = rows.filter(r => (r.score ?? '').trim() !== '' && Number(r.score) < 50).length;
+  const blank = rows.filter(r => (r.stock ?? '').trim() === '').length;
+  const below = rows.filter(r => (r.stock ?? '').trim() !== '' && Number(r.stock) < 50).length;
   let text = await panelText();
   log('review totals:', text.match(/Read \d+ rows from .*?accounted for\./)?.[0]);
-  assert.match(text, new RegExp(`Read ${rows.length} rows from “training_results”: ${below} in the result, ${rows.length - below - blank} left out by the steps, ${blank} flagged\\. Every row is accounted for\\.`));
-  assert.match(text, new RegExp(`${blank} rows? left out because score is blank`));
+  assert.match(text, new RegExp(`Read ${rows.length} rows from “stock_list”: ${below} in the result, ${rows.length - below - blank} left out by the steps, ${blank} flagged\\. Every row is accounted for\\.`));
+  assert.match(text, new RegExp(`${blank} rows? left out because stock is blank`));
   const approveBtn = page.getByRole('button', { name: 'Approve result' });
   assert.equal(await approveBtn.isDisabled(), true, 'approval is closed while a critical exception is open');
   log('blockers:', JSON.stringify(await page.locator('.review__blockers li').allInnerTexts()));
   await shot('r3-review-open');
 
   // 3. Resolve: accept the exception with a reason, confirm every assumption, approve.
-  await page.locator('.review__accept textarea').first().fill('Trainee was absent; marked separately');
+  await page.locator('.review__accept textarea').first().fill('Item was absent; marked separately');
   await page.getByRole('button', { name: 'Accept with this reason' }).click();
   for (const box of await page.locator('.review__check input').all()) await box.check();
   // The approver's name is not filled in for them (a new browser has no profile name), so approval waits for it.
@@ -133,7 +133,7 @@ try {
   const zip = unzipSync(new Uint8Array(readFileSync(file)));
   const sheet = n => strFromU8(zip[`xl/worksheets/sheet${n}.xml`]);
   assert.match(sheet(2), /APPROVED by Jean \(test\)/);
-  assert.match(sheet(2), /Accepted: Trainee was absent; marked separately/);
+  assert.match(sheet(2), /Accepted: Item was absent; marked separately/);
   assert.match(sheet(3), /Output fingerprint \(SHA-256\)/);
   assert.match(sheet(3), /Tested by running it \(the agent\)/);
   log(`report downloaded (${download.suggestedFilename()}): approved, decision recorded, fingerprints and agent rounds included`);

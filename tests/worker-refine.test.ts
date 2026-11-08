@@ -5,11 +5,11 @@ import { handle, parseRefineBody, resetRateLimit, type Env } from '../worker/src
 
 const STEPS = [
   { type: 'READ_CSV', config: { file: 'results', delimiter: ',' } },
-  { type: 'FILTER', config: { condition: 'score < 50' } },
+  { type: 'FILTER', config: { condition: 'stock < 50' } },
   { type: 'OUTPUT', config: { format: 'table' } },
 ];
 const said = (steps: typeof STEPS) => ({ response: JSON.stringify({ steps: steps.map(s => ({ type: s.type, ...s.config })) }), usage: { prompt_tokens: 300, completion_tokens: 40, neurons: 4 } });
-const CHANGED = said([STEPS[0], { type: 'FILTER', config: { condition: 'score < 40' } }, STEPS[2]]);
+const CHANGED = said([STEPS[0], { type: 'FILTER', config: { condition: 'stock < 40' } }, STEPS[2]]);
 
 function env(script: unknown[] = [CHANGED], extra: Partial<Env> = {}): Env & { calls: { model: string; inputs: any }[] } {
   const calls: { model: string; inputs: any }[] = [];
@@ -27,17 +27,17 @@ beforeEach(() => resetRateLimit());
 
 test('a refine request returns the whole updated workflow and whether anything changed', async () => {
   const e = env();
-  const res = await handle(refine({ ...good, datasets: [{ name: 'results', columns: ['name', 'score'] }] }), e);
+  const res = await handle(refine({ ...good, datasets: [{ name: 'results', columns: ['name', 'stock'] }] }), e);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('Access-Control-Allow-Origin'), 'https://app.test');
   const body = await res.json() as any;
   assert.deepEqual(Object.keys(body).sort(), ['attempts', 'elapsedMs', 'issues', 'model', 'neurons', 'nodes', 'unchanged', 'valid']);
   assert.equal(body.unchanged, false);
   assert.equal(body.valid, true);
-  assert.equal(body.nodes[1].config.condition, 'score < 40');
-  assert.equal(body.nodes[1].name, 'Filter: score < 40');
+  assert.equal(body.nodes[1].config.condition, 'stock < 40');
+  assert.equal(body.nodes[1].name, 'Filter: stock < 40');
   assert.equal(e.calls[0].inputs.messages.length, 2);                         // the workflow and the instruction, nothing else
-  assert.match(e.calls[0].inputs.messages[0].content, /- results: columns name, score/);
+  assert.match(e.calls[0].inputs.messages[0].content, /- results: columns name, stock/);
   assert.match(e.calls[0].inputs.messages[1].content, /Instruction: change the filter to 40$/);
 });
 
@@ -122,7 +122,7 @@ test('a refine request from an origin that is not allowed is refused', async () 
 
 const revise = (body: unknown) =>
   new Request('https://w.test/api/revise', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://app.test' }, body: JSON.stringify(body) });
-const goodRevise = { request: 'Trainees who scored below 40', steps: STEPS, observation: 'Step 2 (FILTER) 40 rows in, 12 rows out.\nThe result has 12 rows.' };
+const goodRevise = { request: 'Items with stock below 40', steps: STEPS, observation: 'Step 2 (FILTER) 40 rows in, 12 rows out.\nThe result has 12 rows.' };
 
 test('a revise request sends the request and the run report, and returns the revised workflow', async () => {
   const e = env();
@@ -130,9 +130,9 @@ test('a revise request sends the request and the run report, and returns the rev
   assert.equal(res.status, 200);
   const body = (await res.json()) as any;
   assert.equal(body.unchanged, false);
-  assert.equal(body.nodes[1].config.condition, 'score < 40');
+  assert.equal(body.nodes[1].config.condition, 'stock < 40');
   const user = e.calls[0].inputs.messages[1].content as string;
-  assert.match(user, /^Request: Trainees who scored below 40/);
+  assert.match(user, /^Request: Items with stock below 40/);
   assert.match(user, /What happened when it ran:\nStep 2 \(FILTER\)/);
 });
 

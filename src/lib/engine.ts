@@ -56,7 +56,7 @@ export function alignToColumns(target: string[], table: Table): Row[] | null {
 export const columnMismatch = (name: string, target: string[], table: Table) =>
   `The columns do not match “${name}”. It has: ${target.join(', ')}. This workflow's result has: ${table.columns.join(', ')}.`;
 
-/** Case- and punctuation-tolerant column lookup: "Score", "score" and "SCORE " all find the same column. */
+/** Case- and punctuation-tolerant column lookup: "Stock", "stock" and "STOCK " all find the same column. */
 function findColumn(columns: string[], name: string): string | undefined {
   return columns.find(c => c === name) ?? columns.find(c => norm(c) === norm(name));
 }
@@ -80,8 +80,8 @@ export interface Undecided { column: string; value: string }
 /**
  * `keep` is what Run does with the row (the long-standing rule: a blank or a non-number never satisfies a numeric
  * comparison, except `!=`). `decided` is false when that outcome hinged on such a value, in three-valued logic
- * (as SQL treats NULL): `score < 50 or status == late` is decided for a late row with a blank score, because the
- * second part settles it; `score < 50` alone is not.
+ * (as SQL treats NULL): `stock < 5 or status == late` is decided for a late row with a blank stock count, because the
+ * second part settles it; `stock < 5` alone is not.
  */
 export interface CheckedOutcome { keep: boolean; decided: boolean; undecided: Undecided[] }
 type Outcome = { keep: boolean; tri: boolean | null; undecided: Undecided[] };
@@ -130,7 +130,7 @@ export function mixesAndOr(condition: string): boolean {
   return false;
 }
 
-/** A condition in plain words, e.g. `score < 50 and course == TR101` becomes `score is less than 50 and course is TR101`. */
+/** A condition in plain words, e.g. `stock < 5 and category == Tools` becomes `stock is less than 5 and category is Tools`. */
 export function describeCondition(condition: string): string {
   let tokens: string[];
   try { tokens = tokenize(condition); } catch { return condition; }
@@ -141,7 +141,7 @@ export function describeCondition(condition: string): string {
     .replace(/\( /g, '(').replace(/ \)/g, ')').replace(/ ,/g, ',');
 }
 
-/** Compiles e.g. `score < 50 and status contains "late"` into a row predicate. */
+/** Compiles e.g. `stock < 5 and status contains "late"` into a row predicate. */
 export function compileCondition(text: string, columns: string[]): Predicate {
   const evaluate = parseCondition(text, columns);
   return row => evaluate(row).keep;
@@ -156,7 +156,7 @@ export function checkCondition(text: string, columns: string[]): (row: Row) => C
   };
 }
 
-/** The columns a condition refers to, as written and as found (e.g. `score` written, `Score` found). */
+/** The columns a condition refers to, as written and as found (e.g. `stock` written, `Stock` found). */
 export function conditionColumns(text: string, columns: string[]): { written: string; column: string }[] {
   let tokens: string[];
   try { tokens = tokenize(text); } catch { return []; }
@@ -654,7 +654,7 @@ export function toCsv(table: Table): string {
 
 /* ---------------- Runner ---------------- */
 
-/** "Score is blank" / "Score is “n/a”, not a number", for the rows a condition could not decide. */
+/** "Stock is blank" / "Stock is “n/a”, not a number", for the rows a condition could not decide. */
 function describeUndecided(list: Undecided[]): string {
   const seen = new Map<string, string>();
   for (const u of list) {

@@ -12,21 +12,21 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 
 OUT = Path(__file__).parent
-FIRST = ["Amina", "Daniel", "Mei", "Rahim", "Siti", "Jason", "Nurul", "Kevin", "Aisyah", "Ivan", "Farah", "Lim",
-         "Hafiz", "Chloe", "Zul", "Priya", "Marcus", "Dayang", "Alvin", "Syafiqah", "Ethan", "Nadia", "Bryan", "Hana"]
-LAST = ["Abdullah", "Tan", "Wong", "Ismail", "Lee", "Anak Jaban", "Hassan", "Ng", "Yusof", "Chong", "Rahman", "Lau"]
-COURSES = ["TR101", "TR102", "SAFE201"]
+FIRST = ["Steel", "Blue", "Heavy", "Compact", "Red", "Large", "Small", "Black", "Green", "Cordless", "Folding", "Clear",
+         "Rubber", "Plastic", "Wooden", "Grey", "White", "Yellow", "Metal", "Portable", "Spare", "Basic", "Premium", "Round"]
+LAST = ["Stapler", "Drill", "Cable", "Shelf", "Tape", "Helmet", "Gloves", "Ladder", "Binder", "Trolley", "Printer", "Toolbox"]
+CATEGORIES = ["Tools", "Office", "Safety"]
 
 
-def trainees(seed: int, count: int, start_id: int, period_start: date):
+def stock_rows(seed: int, count: int, start_id: int, period_start: date):
     rnd = random.Random(seed)
     for i in range(count):
-        score = rnd.choice([rnd.randint(20, 49), rnd.randint(50, 95), rnd.randint(50, 95)])
+        stock = rnd.choice([rnd.randint(20, 49), rnd.randint(50, 95), rnd.randint(50, 95)])
         yield [
-            f"S{start_id + i:04d}",
+            f"SKU{start_id + i:04d}",
             f"{rnd.choice(FIRST)} {rnd.choice(LAST)}",
-            rnd.choice(COURSES),
-            score,
+            rnd.choice(CATEGORIES),
+            stock,
             rnd.randint(55, 100),
             period_start + timedelta(days=rnd.randint(0, 90)),
         ]
@@ -49,36 +49,36 @@ def write(path: Path, header: list[str], rows: list[list], sheet: str = "Sheet1"
     print(f"{path.name}: {len(rows)} rows")
 
 
-HEADER = ["trainee_id", "name", "course", "score", "attendance_pct", "submitted"]
+HEADER = ["sku", "name", "category", "stock", "reorder_level", "last_counted"]
 
-# 1. The main dataset. One trainee has no score (absent), and there is a blank row in the middle.
-main = list(trainees(seed=1, count=40, start_id=1, period_start=date(2026, 2, 1)))
+# 1. The main dataset. One item has no stock count (not counted yet), and there is a blank row in the middle.
+main = list(stock_rows(seed=1, count=40, start_id=1, period_start=date(2026, 2, 1)))
 main[6][3] = None
-write(OUT / "training_results.xlsx", HEADER, main, sheet="Results", blank_after=19)
+write(OUT / "stock_list.xlsx", HEADER, main, sheet="Stock", blank_after=19)
 
-# 2. Next quarter: same columns, different trainees. Try it as "Replace" (or "Save as new").
-write(OUT / "training_results_next_quarter.xlsx", HEADER, list(trainees(seed=2, count=30, start_id=101, period_start=date(2026, 8, 1))), sheet="Results")
+# 2. Next month: same columns, different items. Try it as "Replace" (or "Save as new").
+write(OUT / "stock_list_next_month.xlsx", HEADER, list(stock_rows(seed=2, count=30, start_id=101, period_start=date(2026, 8, 1))), sheet="Stock")
 
-# 3. A few late submissions: same columns. Try it as "Add rows".
-write(OUT / "training_results_late_submissions.xlsx", HEADER, list(trainees(seed=3, count=6, start_id=201, period_start=date(2026, 3, 1))), sheet="Late")
+# 3. A few late counts: same columns. Try it as "Add rows".
+write(OUT / "stock_list_late_counts.xlsx", HEADER, list(stock_rows(seed=3, count=6, start_id=201, period_start=date(2026, 3, 1))), sheet="Late")
 
 # 4. Same data, but headers written the way people type them. Matching ignores case and punctuation.
-write(OUT / "training_results_other_headers.xlsx",
-      ["Trainee ID", "Name", "Course", "Score", "Attendance Pct", "Submitted"],
-      list(trainees(seed=4, count=8, start_id=301, period_start=date(2026, 4, 1))), sheet="Export")
+write(OUT / "stock_list_other_headers.xlsx",
+      ["SKU", "Name", "Category", "Stock", "Reorder Level", "Last Counted"],
+      list(stock_rows(seed=4, count=8, start_id=301, period_start=date(2026, 4, 1))), sheet="Export")
 
 # 5. A different kind of data: should be offered as a new dataset, not as an update.
-write(OUT / "courses.xlsx", ["course_code", "course_name", "trainer", "hours"], [
-    ["TR101", "Introduction to Compliance", "Ms Aminah", 4],
-    ["TR102", "Safety Procedures", "Mr Wong", 4],
-    ["SAFE201", "Discrete Compliance", "Mr Ismail", 3],
-], sheet="Courses")
+write(OUT / "categories.xlsx", ["category_code", "category_name", "buyer", "lead_days"], [
+    ["Tools", "Hand and power tools", "Ms Aminah", 4],
+    ["Office", "Office supplies", "Mr Wong", 4],
+    ["Safety", "Safety equipment", "Mr Ismail", 3],
+], sheet="Categories")
 
 # 6. The same main data as CSV, for comparison.
 import csv
-with open(OUT / "training_results.csv", "w", newline="", encoding="utf-8") as f:
+with open(OUT / "stock_list.csv", "w", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
     w.writerow(HEADER)
     for r in main:
         w.writerow(["" if v is None else v for v in r])
-print("training_results.csv:", len(main), "rows")
+print("stock_list.csv:", len(main), "rows")

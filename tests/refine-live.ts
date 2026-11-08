@@ -28,13 +28,13 @@ const withEnd = (steps: S[], extra: S[]) => [...steps.slice(0, -1), ...extra, st
 const swap = (steps: S[], at: number, config: Record<string, string>) => steps.map((s, i) => (i === at ? { ...s, config } : s));
 
 const cases: { id: string; before: S[]; instruction: string; after: S[]; impossible?: boolean }[] = [
-  { id: 'R1', before: ref('S1'), instruction: 'Change the score limit to 40', after: swap(ref('S1'), 1, { condition: 'score < 40' }) },
-  { id: 'R2', before: ref('S1'), instruction: 'Also keep only the name and score columns', after: withEnd(ref('S1'), [st('TRANSFORM', { operation: 'select columns name, score' })]) },
+  { id: 'R1', before: ref('S1'), instruction: 'Change the stock limit to 40', after: swap(ref('S1'), 1, { condition: 'stock < 40' }) },
+  { id: 'R2', before: ref('S1'), instruction: 'Also keep only the name and stock columns', after: withEnd(ref('S1'), [st('TRANSFORM', { operation: 'select columns name, stock' })]) },
   { id: 'R3', before: ref('O7'), instruction: 'Remove the step that saves to the database', after: ref('O7').filter(s => s.type !== 'DATABASE') },
   { id: 'R4', before: ref('E3'), instruction: 'Sort the result by salary, highest first', after: withEnd(ref('E3'), [st('TRANSFORM', { operation: 'sort by salary desc' })]) },
   { id: 'R5', before: ref('O2'), instruction: 'Make the quantity limit 20 instead', after: swap(ref('O2'), 1, { condition: 'quantity > 20 and unit_price > 20' }) },
   { id: 'R6', before: ref('I1'), instruction: 'Only show the first 5 rows', after: withEnd(ref('I1'), [st('TRANSFORM', { operation: 'limit 5' })]) },
-  { id: 'R7', before: ref('S2'), instruction: 'Show everyone with at least 70 instead', after: swap(ref('S2'), 1, { condition: 'score >= 70' }) },
+  { id: 'R7', before: ref('S2'), instruction: 'Show everyone with at least 70 instead', after: swap(ref('S2'), 1, { condition: 'stock >= 70' }) },
   { id: 'R8', before: ref('E1'), instruction: 'Add a condition that years is at least 5', after: swap(ref('E1'), 1, { condition: 'department == Engineering and salary > 5000 and years >= 5' }) },
   { id: 'R9', before: ref('S1'), instruction: 'Send me an email when it finishes', after: ref('S1'), impossible: true },
   { id: 'R10', before: ref('S1'), instruction: 'asdf qwerty', after: ref('S1'), impossible: true },

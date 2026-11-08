@@ -11,7 +11,7 @@ from app.main import app
 
 STEPS = [
     {"type": "READ_CSV", "config": {"file": "results", "delimiter": ","}},
-    {"type": "FILTER", "config": {"condition": "score < 50"}},
+    {"type": "FILTER", "config": {"condition": "stock < 50"}},
     {"type": "OUTPUT", "config": {"format": "table"}},
 ]
 
@@ -34,27 +34,27 @@ def fake_model(monkeypatch, *replies):
 
 
 def test_the_model_is_shown_the_workflow_and_the_instruction_and_no_data():
-    messages = refine_messages(STEPS, "change the filter to 40", [{"name": "results", "columns": ["name", "score"]}])
+    messages = refine_messages(STEPS, "change the filter to 40", [{"name": "results", "columns": ["name", "stock"]}])
     assert [m["role"] for m in messages] == ["system", "user"]
     assert "Change only what the instruction asks for" in messages[0]["content"]
-    assert "- results: columns name, score" in messages[0]["content"]
+    assert "- results: columns name, stock" in messages[0]["content"]
     assert '{"steps":[{"type":"READ_CSV","file":"results","delimiter":","}' in messages[1]["content"]
     assert messages[1]["content"].endswith("Instruction: change the filter to 40")
 
 
 def test_a_change_is_reported_and_the_steps_come_back_named(monkeypatch):
-    changed = [STEPS[0], {"type": "FILTER", "config": {"condition": "score < 40"}}, STEPS[2]]
+    changed = [STEPS[0], {"type": "FILTER", "config": {"condition": "stock < 40"}}, STEPS[2]]
     calls = fake_model(monkeypatch, answer(changed))
     result = asyncio.run(refine_workflow(STEPS, "change the filter to 40", "m"))
     assert result.unchanged is False and result.valid
-    assert [n.config.get("condition") for n in result.nodes if n.type == "FILTER"] == ["score < 40"]
-    assert result.nodes[1].name == "Filter: score < 40"
+    assert [n.config.get("condition") for n in result.nodes if n.type == "FILTER"] == ["stock < 40"]
+    assert result.nodes[1].name == "Filter: stock < 40"
     assert len(calls) == 1 and calls[0]["temperature"] == 0.1
 
 
 def test_the_same_workflow_back_is_reported_as_unchanged_even_if_written_differently(monkeypatch):
     # No delimiter in the input, extra spaces and a default filled in by the model: still the same workflow.
-    steps_in = [{"type": "READ_CSV", "config": {"file": "results"}}, {"type": "FILTER", "config": {"condition": " score < 50 "}}, STEPS[2]]
+    steps_in = [{"type": "READ_CSV", "config": {"file": "results"}}, {"type": "FILTER", "config": {"condition": " stock < 50 "}}, STEPS[2]]
     fake_model(monkeypatch, answer(STEPS))
     assert asyncio.run(refine_workflow(steps_in, "make the world better", "m")).unchanged is True
 
@@ -89,14 +89,14 @@ def client(tmp_path, monkeypatch):
 
 
 def test_the_route_returns_named_steps_and_whether_anything_changed(client, monkeypatch):
-    fake_model(monkeypatch, answer([STEPS[0], {"type": "FILTER", "config": {"condition": "score < 40"}}, STEPS[2]]))
+    fake_model(monkeypatch, answer([STEPS[0], {"type": "FILTER", "config": {"condition": "stock < 40"}}, STEPS[2]]))
     res = client.post("/api/refine", json={"steps": STEPS, "instruction": "change the filter to 40", "datasets": []})
     assert res.status_code == 200
     body = res.json()
     assert set(body) == {"nodes", "valid", "issues", "unchanged", "attempts", "elapsedMs", "model"}
     assert body["unchanged"] is False and body["valid"] is True
     assert [n["type"] for n in body["nodes"]] == ["READ_CSV", "FILTER", "OUTPUT"]
-    assert body["nodes"][1]["config"]["condition"] == "score < 40" and body["nodes"][1]["name"]
+    assert body["nodes"][1]["config"]["condition"] == "stock < 40" and body["nodes"][1]["name"]
 
 
 def test_the_route_refuses_bad_requests_and_reports_model_failures(client, monkeypatch):

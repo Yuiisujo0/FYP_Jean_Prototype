@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from app import config
 from app.main import app
 
-CSV = "trainee,score\nAmina,42\nDaniel,67\n\nMei,38\n"
+CSV = "item,stock\nAmina,42\nDaniel,67\n\nMei,38\n"
 
 
 @pytest.fixture()
@@ -21,14 +21,14 @@ def test_upload_parses_columns_and_skips_blank_rows(client):
     res = upload(client)
     assert res.status_code == 200
     body = res.json()
-    assert body["columns"] == ["trainee", "score"]
+    assert body["columns"] == ["item", "stock"]
     assert body["rowCount"] == 3
-    assert body["rows"][2] == {"trainee": "Mei", "score": "38"}
+    assert body["rows"][2] == {"item": "Mei", "stock": "38"}
 
 
 def test_same_name_replaces_data_and_keeps_the_id(client):
     first = upload(client).json()
-    second = upload(client, content="trainee,score\nRahim,81\n").json()
+    second = upload(client, content="item,stock\nRahim,81\n").json()
     assert second["id"] == first["id"]
     assert second["rowCount"] == 1
     assert len(client.get("/api/datasets").json()) == 1
@@ -64,54 +64,54 @@ def xlsx(name):
 
 
 def test_excel_is_read_with_blank_cells_blank_rows_and_dates(client):
-    res = client.post("/api/datasets", json={"name": "results", **xlsx("training_results.xlsx")})
+    res = client.post("/api/datasets", json={"name": "results", **xlsx("stock_list.xlsx")})
     assert res.status_code == 200
     body = res.json()
-    assert body["columns"] == ["trainee_id", "name", "course", "score", "attendance_pct", "submitted"]
+    assert body["columns"] == ["sku", "name", "category", "stock", "reorder_level", "last_counted"]
     assert body["rowCount"] == 40  # the stray blank row is skipped
-    assert body["rows"][6]["score"] == ""  # the absent trainee keeps a blank score
-    assert body["rows"][0]["score"].isdigit()  # 42, not 42.0
-    assert len(body["rows"][0]["submitted"]) == 10  # an ISO date such as 2026-02-14
+    assert body["rows"][6]["stock"] == ""  # the absent item keeps a blank stock
+    assert body["rows"][0]["stock"].isdigit()  # 42, not 42.0
+    assert len(body["rows"][0]["last_counted"]) == 10  # an ISO date such as 2026-02-14
 
 
 def test_inspect_reports_matches_without_saving(client):
-    client.post("/api/datasets", json={"name": "training_results", **xlsx("training_results.xlsx")})
-    info = client.post("/api/datasets/inspect", json=xlsx("training_results_next_quarter.xlsx")).json()
-    assert info["rowCount"] == 30 and info["sheet"] == "Results"
+    client.post("/api/datasets", json={"name": "stock_list", **xlsx("stock_list.xlsx")})
+    info = client.post("/api/datasets/inspect", json=xlsx("stock_list_next_month.xlsx")).json()
+    assert info["rowCount"] == 30 and info["sheet"] == "Stock"
     [match] = info["matches"]
     assert match["sameColumns"] is True and match["sameName"] is False
     assert len(client.get("/api/datasets").json()) == 1  # nothing new was saved
 
-    unrelated = client.post("/api/datasets/inspect", json=xlsx("courses.xlsx")).json()
+    unrelated = client.post("/api/datasets/inspect", json=xlsx("categories.xlsx")).json()
     assert unrelated["matches"] == []
 
 
 def test_same_file_name_counts_as_same_name(client):
-    client.post("/api/datasets", json={"name": "training_results", **xlsx("training_results.xlsx")})
-    info = client.post("/api/datasets/inspect", json=xlsx("training_results.xlsx")).json()
+    client.post("/api/datasets", json={"name": "stock_list", **xlsx("stock_list.xlsx")})
+    info = client.post("/api/datasets/inspect", json=xlsx("stock_list.xlsx")).json()
     assert info["matches"][0]["sameName"] is True
 
 
 def test_append_adds_rows_even_when_headers_are_typed_differently(client):
-    target = client.post("/api/datasets", json={"name": "results", **xlsx("training_results.xlsx")}).json()
-    res = client.post("/api/datasets", json={"mode": "append", "targetId": target["id"], **xlsx("training_results_other_headers.xlsx")})
+    target = client.post("/api/datasets", json={"name": "results", **xlsx("stock_list.xlsx")}).json()
+    res = client.post("/api/datasets", json={"mode": "append", "targetId": target["id"], **xlsx("stock_list_other_headers.xlsx")})
     assert res.status_code == 200
     body = res.json()
     assert body["rowCount"] == 48
     assert body["columns"] == target["columns"]  # the dataset keeps its own column names
-    assert body["rows"][-1]["attendance_pct"].isdigit()
+    assert body["rows"][-1]["reorder_level"].isdigit()
 
 
 def test_append_rejects_different_columns(client):
-    target = client.post("/api/datasets", json={"name": "results", **xlsx("training_results.xlsx")}).json()
-    res = client.post("/api/datasets", json={"mode": "append", "targetId": target["id"], **xlsx("courses.xlsx")})
+    target = client.post("/api/datasets", json={"name": "results", **xlsx("stock_list.xlsx")}).json()
+    res = client.post("/api/datasets", json={"mode": "append", "targetId": target["id"], **xlsx("categories.xlsx")})
     assert res.status_code == 422 and "do not match" in res.json()["detail"]
 
 
 def test_new_refuses_an_existing_name_and_replace_swaps_the_data(client):
-    client.post("/api/datasets", json={"name": "results", **xlsx("training_results.xlsx")})
-    assert client.post("/api/datasets", json={"name": "Results", "mode": "new", **xlsx("courses.xlsx")}).status_code == 409
-    replaced = client.post("/api/datasets", json={"name": "results", "mode": "replace", **xlsx("training_results_next_quarter.xlsx")}).json()
+    client.post("/api/datasets", json={"name": "results", **xlsx("stock_list.xlsx")})
+    assert client.post("/api/datasets", json={"name": "Results", "mode": "new", **xlsx("categories.xlsx")}).status_code == 409
+    replaced = client.post("/api/datasets", json={"name": "results", "mode": "replace", **xlsx("stock_list_next_month.xlsx")}).json()
     assert replaced["rowCount"] == 30 and len(client.get("/api/datasets").json()) == 1
 
 

@@ -9,8 +9,8 @@ It runs the same pipeline as the Python backend (retrieve examples, prompt, sche
 
 | | |
 |---|---|
-| `POST /api/generate` | body `{ "prompt": "...", "datasets": [{ "name": "marks", "columns": ["name", "score"] }] }` (datasets optional; names and columns only, never rows) |
-| `POST /api/refine` | body `{ "steps": [{ "type": "FILTER", "config": { "condition": "score < 50" } }], "instruction": "Change the limit to 40", "datasets": [...] }`; returns the whole workflow after the change and whether anything changed. Only the steps and the instruction are used, never data |
+| `POST /api/generate` | body `{ "prompt": "...", "datasets": [{ "name": "stock_list", "columns": ["name", "stock"] }] }` (datasets optional; names and columns only, never rows) |
+| `POST /api/refine` | body `{ "steps": [{ "type": "FILTER", "config": { "condition": "stock < 5" } }], "instruction": "Change the limit to 40", "datasets": [...] }`; returns the whole workflow after the change and whether anything changed. Only the steps and the instruction are used, never data |
 | `GET /api/health` | `{ "status": "ok", "provider": "workers-ai", "models": [...] }` |
 
 The response has the same shape as the Python backend's `/api/generate`, so the frontend works with either.

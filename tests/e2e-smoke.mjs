@@ -76,24 +76,24 @@ try {
   // 1. Two Excel files chosen at once, empty library: both saved with no dialog.
   await page.goto(`${base}/knowledge?tab=data`);
   await page.getByText('No data yet').waitFor();
-  await choose(['training_results.xlsx', 'courses.xlsx']);
-  await page.locator('.kb__row', { hasText: 'courses' }).waitFor();
-  await page.locator('.kb__row', { hasText: 'training_results' }).waitFor();
-  assert.equal(await rowsOf('training_results'), 40);
-  assert.equal(await rowsOf('courses'), 3);
+  await choose(['stock_list.xlsx', 'categories.xlsx']);
+  await page.locator('.kb__row', { hasText: 'categories' }).waitFor();
+  await page.locator('.kb__row', { hasText: 'stock_list' }).waitFor();
+  assert.equal(await rowsOf('stock_list'), 40);
+  assert.equal(await rowsOf('categories'), 3);
   await shot('1-two-files-uploaded');
   log('2 files chosen at once: both saved (40 and 3 rows), no dialog');
 
   // The data is in the browser, so it must survive a reload.
   await page.reload();
-  await page.locator('.kb__row', { hasText: 'training_results' }).waitFor();
-  assert.equal(await rowsOf('training_results'), 40);
-  assert.equal(await rowsOf('courses'), 3);
+  await page.locator('.kb__row', { hasText: 'stock_list' }).waitFor();
+  assert.equal(await rowsOf('stock_list'), 40);
+  assert.equal(await rowsOf('categories'), 3);
   log('after a page reload both datasets are still there');
 
   // 2. Generate with the dataset known to the model, then run.
   await page.goto(`${base}/generate`);
-  await page.locator('#prompt').fill('Find the trainees in my training results with a score below 50 and save them to the database');
+  await page.locator('#prompt').fill('Find the items in my stock list with stock below 50 and save them to the database');
   await page.getByRole('button', { name: /build workflow/i }).click();
   await page.waitForURL(/\/editor\//, { timeout: 120000 });
   await toSteps();
@@ -105,10 +105,10 @@ try {
   log('banner "needs data" shown:', needs, '| step label:', (await readStep.first().innerText()).replace(/\s+/g, ' ').slice(0, 60));
   if (needs) {
     await page.getByRole('button', { name: 'Choose dataset' }).click();
-    await page.locator('select').first().selectOption({ label: /training_results/ });
+    await page.locator('select').first().selectOption({ label: /stock_list/ });
   }
-  const stored = await datasetRows('training_results');
-  const expected = stored.rows.filter(r => r.score !== '' && Number(r.score) < 50).length;
+  const stored = await datasetRows('stock_list');
+  const expected = stored.rows.filter(r => r.stock !== '' && Number(r.stock) < 50).length;
 
   // The Check tab explains the workflow in plain English and previews the result, without running anything for real.
   await page.getByRole('tab', { name: /Check/ }).click();
@@ -119,7 +119,7 @@ try {
   const sentences = await page.locator('.check__explain li').allInnerTexts();
   log('plain English:', JSON.stringify(sentences));
   assert.ok(sentences.some(s => /^Reads the “.+” dataset\./.test(s)));
-  assert.ok(sentences.some(s => /^Keeps only the rows where .*score is less than 50/.test(s)));
+  assert.ok(sentences.some(s => /^Keeps only the rows where .*stock is less than 50/.test(s)));
   assert.equal((await datasets()).length, 2, 'the preview must not save a table');
   log(`preview shows ${expected} rows and saved nothing`);
 
@@ -127,17 +127,17 @@ try {
   await page.getByText('Download CSV').waitFor({ timeout: 15000 });
   await shot('3-run-complete');
   const text = (await page.locator('.editor__panel').innerText()).replace(/\s+/g, ' ');
-  log('run result:', text.match(/The result has \d+ rows?/)?.[0], '| expected rows with score < 50:', expected);
+  log('run result:', text.match(/The result has \d+ rows?/)?.[0], '| expected rows with stock < 50:', expected);
   assert.match(text, new RegExp(`The result has ${expected} rows?`));
 
   // 2b. Ask: change the workflow in plain English. First the failure path, then a real change.
   await page.getByRole('tab', { name: 'Ask' }).click();
   await page.route('**/api/refine', route => route.abort());
-  await page.locator('#ask-input').fill('Change the filter so the score must be below 40');
+  await page.locator('#ask-input').fill('Change the filter so the stock must be below 40');
   await page.getByRole('button', { name: 'Apply change' }).click();
   await page.locator('.ask__reply--error').waitFor();
   log('Ask, AI service unreachable:', (await page.locator('.ask__reply--error').innerText()).replace(/\s+/g, ' ').slice(0, 90));
-  assert.equal(await page.locator('#ask-input').inputValue(), 'Change the filter so the score must be below 40', 'the text is kept after an error');
+  assert.equal(await page.locator('#ask-input').inputValue(), 'Change the filter so the stock must be below 40', 'the text is kept after an error');
   await page.unroute('**/api/refine');
 
   await page.getByRole('button', { name: 'Apply change' }).click();
@@ -145,47 +145,47 @@ try {
   const askReply = (await page.locator('.ask__reply--ok').innerText()).replace(/\s+/g, ' ');
   log('Ask reply:', askReply.slice(0, 140));
   assert.match(askReply, /^Changed a step/);
-  const below40 = stored.rows.filter(r => r.score !== '' && Number(r.score) < 40).length;
+  const below40 = stored.rows.filter(r => r.stock !== '' && Number(r.stock) < 40).length;
   await page.getByRole('tab', { name: /Check/ }).click();
   await page.getByText(new RegExp(`${below40} rows? in the result`)).waitFor({ timeout: 20000 });
-  assert.ok((await page.locator('.check__explain li').allInnerTexts()).some(t => /score is less than 40/.test(t)), 'the plain-English steps show the new limit');
+  assert.ok((await page.locator('.check__explain li').allInnerTexts()).some(t => /stock is less than 40/.test(t)), 'the plain-English steps show the new limit');
   await shot('3b-after-ask');
   log(`Ask changed the filter to below 40 and the preview now shows ${below40} rows`);
 
   // 3. Two files that both need a decision: asked one after the other.
   await page.goto(`${base}/knowledge?tab=data`);
-  await choose(['training_results_late_submissions.xlsx', 'training_results_other_headers.xlsx']);
+  await choose(['stock_list_late_counts.xlsx', 'stock_list_other_headers.xlsx']);
   await page.getByRole('dialog').waitFor();
   assert.match(await page.getByRole('dialog').innerText(), /\(1 of 2\)/);
   await page.waitForTimeout(400);
   await shot('4-dialog-1-of-2');
-  await saveDialog('Add these rows to “training_results”');
+  await saveDialog('Add these rows to “stock_list”');
   await page.getByText('(2 of 2)').waitFor();
-  await saveDialog('Add these rows to “training_results”');
+  await saveDialog('Add these rows to “stock_list”');
   await page.getByRole('dialog').waitFor({ state: 'detached' });
   await page.getByText('2 files saved').waitFor();
-  assert.equal(await rowsOf('training_results'), 54);
+  assert.equal(await rowsOf('stock_list'), 54);
   log('2 files needing decisions: asked in turn, 40 + 6 + 8 = 54');
 
   // 4. A mixed batch: one skipped, one unsupported file type.
-  await choose(['training_results_next_quarter.xlsx', 'make_samples.py']);
+  await choose(['stock_list_next_month.xlsx', 'make_samples.py']);
   await page.getByRole('dialog').waitFor();
   await page.waitForTimeout(400);
   await page.getByRole('button', { name: 'Skip this file' }).click();
   await page.getByText(/0 files saved, 1 skipped, 1 failed\. make_samples\.py: Only CSV and Excel/).waitFor();
-  assert.equal(await rowsOf('training_results'), 54);
+  assert.equal(await rowsOf('stock_list'), 54);
   log('skip and unsupported type handled, nothing changed');
 
   // 5. Real drag and drop: overlay appears while dragging, then replace.
-  await dragFiles(['training_results_next_quarter.xlsx'], { drop: false });
+  await dragFiles(['stock_list_next_month.xlsx'], { drop: false });
   await page.getByText('Drop files to upload').waitFor();
   await page.waitForTimeout(300);
   await shot('5-drag-overlay');
-  await dragFiles(['training_results_next_quarter.xlsx']);
-  await saveDialog('Replace “training_results”');
+  await dragFiles(['stock_list_next_month.xlsx']);
+  await saveDialog('Replace “stock_list”');
   await page.getByRole('dialog').waitFor({ state: 'detached' });
   await page.getByText('Drop files to upload').waitFor({ state: 'detached' });
-  assert.equal(await rowsOf('training_results'), 30);
+  assert.equal(await rowsOf('stock_list'), 30);
   await shot('6-data-final');
   log('drag and drop: replaced with 30 rows');
   assert.deepEqual(dataCalls, [], 'the app must not call any /api/datasets endpoint');

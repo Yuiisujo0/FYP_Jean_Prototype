@@ -15,10 +15,10 @@ test('greetings and "how are you" suggest tasks; thanks does not', () => {
 
 test('real tasks are never treated as small talk', () => {
   for (const t of [
-    'Read a CSV of training results and flag everyone below 50',
-    'hi, please filter the rows where score is below 50',
+    'Read a CSV of stock list and flag everyone below 50',
+    'hi, please filter the rows where stock is below 50',
     'show employees in Sales earning over 6000',
-    'count rows by course',
+    'count rows by category',
     'help me total the amount per customer',
   ]) {
     assert.equal(smallTalk(t), null, t);

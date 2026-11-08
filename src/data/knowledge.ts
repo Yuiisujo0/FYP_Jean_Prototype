@@ -13,7 +13,7 @@ export const BUILT_IN_KNOWLEDGE: KnowledgeEntry[] = [
     title: 'Filter conditions',
     category: 'Data preparation',
     summary: 'Keep records that meet a clear, testable condition.',
-    detail: 'Use explicit comparisons such as score < 50. Conditions should refer to fields that exist in the incoming records, and each filter should test one idea.',
+    detail: 'Use explicit comparisons such as stock < 5. Conditions should refer to fields that exist in the incoming records, and each filter should test one idea.',
   },
   {
     id: 'records',

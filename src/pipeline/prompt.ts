@@ -3,7 +3,7 @@ import type { ValidationIssue } from '../types';
 import { contract } from './contract.ts';
 import type { ChatMessage, DatasetBrief, RetrievedEntry } from './types.ts';
 
-export const MAX_DATASETS_IN_PROMPT = 6;
+export const MAX_DATASETS_IN_PROMPT = 20;
 export const MAX_COLUMNS_IN_PROMPT = 12;
 
 /** The user's uploaded datasets: names and columns only, never rows (they would slow every request). */
@@ -32,7 +32,7 @@ Rules:
 - The workflow is linear: each step feeds the next one.
 - The first step must be a data source (INPUT, READ_FILE, READ_CSV or HTTP_REQUEST).
 - The last step must be OUTPUT.
-- Fill every parameter with a concrete value taken from the request, for example a FILTER condition such as "score < 50".
+- Fill every parameter with a concrete value taken from the request, for example a FILTER condition such as "stock < 5".
 - Use only as many steps as the request needs, between 2 and 6. Do not add steps the user did not ask for.
 
 Relevant reference patterns:
