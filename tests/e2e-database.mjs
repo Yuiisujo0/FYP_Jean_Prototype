@@ -1,4 +1,5 @@
-// Drives the real app in Edge/Chromium: the Database step's modes and the split between uploads and saved results.
+// Drives the real app in Edge/Chromium: the Database step's modes, the split between uploads and saved results, and the
+// rule that a run saves nothing until its result is approved.
 // Needs only the frontend (npm run dev), no backend or model. Every run starts with a fresh browser profile.
 // Usage: node tests/e2e-database.mjs [frontendUrl]
 import { chromium } from 'playwright';
@@ -51,6 +52,19 @@ const runAndWait = async () => {
   await page.getByText(/Ran 4 steps|stopped the run/).first().waitFor({ timeout: 15000 });
 };
 
+/** Resolves the review (accepts each critical exception, confirms each assumption) and approves; the save happens here. */
+const approveResult = async table => {
+  await page.getByRole('tab', { name: /Check/ }).click();
+  await page.getByText(`Approving also saves the result to “${table}” in the Data library. Nothing is saved before that.`).waitFor();
+  for (let i = 0; i < 10 && await page.locator('.review__accept textarea').count(); i++) {
+    await page.locator('.review__accept textarea').first().fill('Checked by hand');
+    await page.getByRole('button', { name: 'Accept with this reason' }).first().click();
+  }
+  for (const box of await page.locator('.review__check input').all()) await box.check();
+  await page.locator('.review__approve input').fill('Tester');
+  await page.getByRole('button', { name: 'Approve result' }).click();
+  await page.getByText(/Approved by Tester/).first().waitFor();
+};
 
 /** A workflow opens on its Result; the canvas and its tabs are under "How it was done". */
 const toSteps = async () => {
@@ -88,14 +102,20 @@ try {
   assert.equal(await find('low_log'), undefined, 'a preview must not create the table');
   log('plain English says it adds rows; the preview created nothing');
 
-  // 3. Run twice: created, then added.
+  // 3. Run: nothing is saved until the result is approved. Approve: created. Run the approved workflow again: added.
   await runAndWait();
+  await page.locator('.react-flow__node', { hasText: 'Log them' }).getByText(/when you approve the result/).waitFor();
+  assert.equal(await find('low_log'), undefined, 'a run must not save before approval');
+  await shot('d1b-held');
+  log('Run saved nothing; the step says it will add the rows when the result is approved');
+  await approveResult('low_log');
   const expected = (await find('low_log')).rows;
   assert.ok(expected > 0);
   assert.equal((await find('low_log')).origin, 'result');
   await runAndWait();
+  await page.locator('.react-flow__node', { hasText: 'Log them' }).getByText(/which now has/).waitFor();
   assert.equal((await find('low_log')).rows, expected * 2);
-  log(`run 1 created low_log with ${expected} rows, run 2 added ${expected} more (${expected * 2} in total)`);
+  log(`approved: low_log created with ${expected} rows; running the approved workflow again added ${expected} more (${expected * 2} in total)`);
 
   // 4. The Data page keeps uploads and saved results apart.
   await page.goto(`${base}/knowledge?tab=data`);
@@ -132,8 +152,10 @@ try {
   await page.getByRole('tab', { name: /Check/ }).click();
   await page.getByText(/replacing its contents/).waitFor();
   await runAndWait();
+  assert.equal((await find('low_log')).rows, expected * 2, 'the changed workflow is not approved yet, so nothing is replaced');
+  await approveResult('low_log');
   assert.equal((await find('low_log')).rows, expected);
-  log(`mode replace: low_log is back to ${expected} rows`);
+  log(`mode replace: nothing changed until approval, then low_log is back to ${expected} rows`);
 
   // 7. Pointing the step at uploaded data in replace mode is refused, and the upload is untouched.
   await page.locator('.react-flow__node', { hasText: 'Log them' }).click();

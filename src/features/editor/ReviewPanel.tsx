@@ -139,12 +139,13 @@ export function ApproveBox({ editor }: { editor: FlowEditor }) {
   const { result, gate, approval, approvalCurrent, approvalForResult } = editor;
   if (!result || !gate) return null;
 
+  const saving = editor.pendingSaves.map(s => `“${s.name}”`).join(' and ');
   const doApprove = async () => {
     setApproving(true);
     setMessage('');
     try {
       await editor.approveResult(approver);
-      setMessage('Approved. The report now says so, with fingerprints of the workflow, the input and the result.');
+      setMessage(`Approved. ${saving ? `The result is now saved to ${saving}. ` : ''}The report now says so, with fingerprints of the workflow, the input and the result.`);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Could not approve.');
     } finally {
@@ -178,6 +179,7 @@ export function ApproveBox({ editor }: { editor: FlowEditor }) {
               {gate.blockers.map(b => <li key={b}><Lock size={13} aria-hidden /> {b}</li>)}
             </ul>
           )}
+          {saving && <p className="check__hint">Approving also saves the result to {saving} in the Data library. Nothing is saved before that.</p>}
           <div className="review__approve">
             <input className="input" value={approver} onChange={e => setApprover(e.target.value)} placeholder="Your name" aria-label="Approver name" />
             <Button variant="primary" size="sm" disabled={!gate.canApprove || !approver.trim()} loading={approving} icon={<BadgeCheck size={15} />} onClick={doApprove}>
