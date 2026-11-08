@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { checkByRunning } from '../src/lib/agent.ts';
 import { runFlow, type RunContext, type Table } from '../src/lib/engine.ts';
 import { groundingFindings } from '../src/lib/grounding.ts';
-import { repairByRules } from '../src/lib/repair.ts';
+import { repairByRules, repairRunError } from '../src/lib/repair.ts';
 import type { Step } from '../src/types.ts';
 
 const data = JSON.parse(readFileSync('backend/eval/tasks.json', 'utf-8')) as {
@@ -148,4 +148,80 @@ test('lost not: == becomes !=, and an in-list becomes not in once', () => {
   assert.equal(repairByRules('Items neither Tools nor Furniture with stock under 5', steps, both, { columns: ['category'] })?.steps[1].config.condition, 'category not in (Tools, Furniture) and stock < 5');
   const one = mk([['READ_CSV', { file: 'inventory' }], ['FILTER', { condition: 'supplier == Acme' }], ['OUTPUT', { format: 'table' }]], 'lo');
   assert.equal(repairByRules('Items not from Acme', one, [{ kind: 'lost_not' as const, stepId: 'lo1', column: 'supplier', value: 'Acme', text: 'x' }], { columns: ['supplier'] })?.steps[1].config.condition, 'supplier != Acme');
+});
+
+/* The wrong table. A plan that stops on a column its table does not have used to get no rule at all. */
+const outlines = names.map(name => ({ name, columns: data.datasets[name].columns }));
+const dryRun = async (steps: Step[]) => {
+  try { return { result: await runFlow(steps, ctx, () => {}, { dryRun: true }) }; }
+  catch (e) { return { error: (e as Error).message }; }
+};
+/** The whole agent loop with a model that never helps, so whatever gets fixed here was fixed by the rules alone. */
+async function agentAlone(id: string, spec: Spec) {
+  const task = data.tasks.find(t => t.id === id)!;
+  const { steps, rounds } = await checkByRunning(mk(spec, id), {
+    test: dryRun, request: task.request, datasets: outlines,
+    revise: async () => ({ nodes: [], valid: true, unchanged: true, issues: [] }),
+  });
+  const out = await runFlow(steps, ctx, () => {}).catch(() => null);
+  const right = !!out && JSON.stringify(out.columns) === JSON.stringify(task.expected!.columns) && JSON.stringify(out.rows) === JSON.stringify(task.expected!.rows);
+  return { steps, rounds, right };
+}
+
+test('a plan that stops on a column only one other table has reads that table (G5, what qwen2.5 wrote)', async () => {
+  const r = await agentAlone('G5', [R('suppliers'), ['TRANSFORM', { operation: 'group by supplier: count, min stock' }], OUT]);
+  assert.equal(r.steps[0].config.file, 'inventory');
+  assert.equal(r.rounds[0].outcome, 'repaired');
+  assert.match(r.rounds[0].detail, /Read “inventory” instead of “suppliers”/);
+  assert.ok(r.right);
+});
+
+test('a join is not added when the table being read is not needed at all (I5 and N1, what qwen2.5 wrote)', async () => {
+  const i5 = await agentAlone('I5', [R('suppliers'), ['TRANSFORM', { operation: 'drop columns supplier' }], ['TRANSFORM', { operation: 'limit 10' }], OUT]);
+  assert.equal(i5.steps[0].config.file, 'inventory');
+  assert.ok(!i5.steps.some(s => /^join/.test(s.config.operation ?? '')));
+  assert.ok(i5.right);
+  const n1 = await agentAlone('N1', [R('suppliers'), ['FILTER', { condition: "supplier == 'Delta Trading'" }], OUT]);
+  assert.equal(n1.steps[0].config.file, 'inventory');
+  assert.ok(n1.right);
+});
+
+test('when both tables are needed the other one is joined, not swapped in (G7)', async () => {
+  const r = await agentAlone('G7', [R('inventory'), ['TRANSFORM', { operation: 'select columns item, country' }], OUT]);
+  assert.equal(r.steps[0].config.file, 'inventory');
+  assert.equal(r.steps[1].config.operation, 'join suppliers on supplier');
+  assert.ok(r.right);
+});
+
+test('one word of a column name keeps the table: "every trainee" still needs training_results (G6, what gemma3 wrote)', async () => {
+  const r = await agentAlone('G6', [R('training_results'), ['LLM', { task: 'Add the course title to every trainee' }], OUT]);
+  assert.equal(r.steps[0].config.file, 'training_results');
+  assert.equal(r.steps[1].config.operation, 'join courses on course');
+});
+
+test('a plan with no read step gets the one table that has the column', () => {
+  const steps = mk([['FILTER', { condition: 'stock < 5' }], OUT], 'nr');
+  const fixed = repairRunError('Items with stock under 5', steps, 'There is no column “stock”. Available columns: none (no data has been read yet).', outlines);
+  assert.deepEqual(fixed?.steps.map(s => s.type), ['READ_CSV', 'FILTER', 'OUTPUT']);
+  assert.equal(fixed?.steps[0].config.file, 'inventory');
+});
+
+test('a file name with its extension still counts as that table', () => {
+  const steps = mk([R('suppliers.csv'), ['FILTER', { condition: 'stock < 5' }], OUT], 'ext');
+  const fixed = repairRunError('Items with stock under 5', steps, 'There is no column “stock”. Available columns: supplier, country, lead_days.', outlines);
+  assert.equal(fixed?.steps[0].config.file, 'inventory');
+});
+
+test('the wrong-table rule stays out when it cannot be sure', () => {
+  const steps = mk([R('suppliers'), ['FILTER', { condition: 'stock < 5' }], OUT], 'unsure');
+  const error = 'There is no column “stock”. Available columns: supplier, country, lead_days.';
+  const stockIn = (...tables: string[]) => tables.map(name => ({ name, columns: ['stock', 'supplier'] }));
+  assert.equal(repairRunError('Items with stock under 5', steps, error, undefined), null, 'no list of tables');
+  assert.equal(repairRunError('Items with stock under 5', steps, error, [...outlines.filter(d => d.name === 'suppliers'), ...stockIn('one', 'two')]), null, 'two tables have the column');
+  assert.equal(repairRunError('Show the running low list', steps, error, outlines), null, 'the request never names the column');
+  assert.equal(repairRunError('Items with stock under 5', steps, 'The condition “x” could not be read.', outlines), null, 'another kind of error');
+  const two = mk([R('suppliers'), R('employees'), ['FILTER', { condition: 'stock < 5' }], OUT], 'two');
+  assert.equal(repairRunError('Items with stock under 5', two, error, outlines), null, 'more than one read step');
+  const typo = mk([R('inventory'), ['FILTER', { condition: 'country == Malaysia' }], OUT], 'own');
+  assert.deepEqual(repairRunError('Show the country', typo, 'There is no column “country”. Available columns: sku.', [{ name: 'inventory', columns: ['sku'] }]), null, 'no other table has it');
 });

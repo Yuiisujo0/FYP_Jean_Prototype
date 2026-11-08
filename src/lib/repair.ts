@@ -10,8 +10,11 @@
  *   mixed_logic     or-terms on one column next to and → put brackets round the or-terms;
  *   no_sort         "highest / lowest ..." with no sort → add `sort by <the column the request names>` (before any limit);
  *   wrong_dataset   the request shares words with exactly one other uploaded dataset → read that one instead;
- *   missing_join    the request names a column only another dataset has → join that dataset on the one column both share;
+ *   missing_join    the request names a column only another dataset has → join that dataset on the one column both share,
+ *                   or read it instead when nothing needs a column only the current dataset has;
  *   lost_not        "not X" in the request, but the filter keeps X → == becomes !=, in becomes not in.
+ *
+ * A plan that stops on a column its table does not have gets no findings, so repairRunError handles it the same way.
  *
  * unused_number ("under 70" dropped) has no rule: which column and which comparison the number belongs to is the model's call.
  *
@@ -22,7 +25,7 @@
  */
 import type { Step } from '../types';
 import { tokenize } from './engine.ts';
-import type { Finding } from './grounding.ts';
+import type { DatasetOutline, Finding } from './grounding.ts';
 import { makeId } from './id.ts';
 
 export interface Repaired {
@@ -162,16 +165,77 @@ function bracketOrRun(condition: string): string | null {
 const DESC = /\b(most|highest|top|best|largest|biggest|longest|greatest)\b/i;
 const ASC = /\b(least|lowest|worst|cheapest|smallest|shortest)\b/i;
 
+const words = (s: string) => ` ${s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()} `;
+
 /** The one column the request names (by its name, underscores read as spaces), if there is exactly one. */
 function namedColumn(request: string, columns: string[]): string | null {
-  const asked = ` ${request.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ')} `;
-  const hits = columns.filter(c => asked.includes(` ${c.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()} `));
+  const asked = words(request);
+  const hits = columns.filter(c => asked.includes(words(c)));
   return hits.length === 1 ? hits[0] : null;
 }
 
 const mkStep = (type: string, config: Record<string, string>, name: string): Step => ({ id: makeId(), type, name, description: '', config });
 
-export function repairByRules(request: string, steps: Step[], findings: Finding[], input: { columns: string[] } | undefined): Repaired | null {
+/**
+ * Whether the request or the plan uses a column that only `own` has, so the other table has to come in beside it, not
+ * replace it. One word of a column name is enough ("every trainee" for trainee_id): dropping a table that was needed is
+ * the worse mistake, because the run still looks clean.
+ */
+function needsOwnColumn(request: string, steps: Step[], own: string[], other: string[]): boolean {
+  const theirs = new Set(other.map(squash));
+  const used = words(`${request} ${steps.filter(s => s.type !== 'READ_CSV').flatMap(s => Object.values(s.config)).join(' ')}`);
+  return own.some(c => !theirs.has(squash(c)) && words(c).trim().split(' ').some(w => w.length > 2 && used.includes(words(w))));
+}
+
+/** Joins `dataset` right after the data is read, so every later step can use `column`. */
+function addJoin(work: Step[], notes: string[], dataset: string, on: string, column: string) {
+  const op = `join ${dataset} on ${on}`;
+  const at = work.findIndex(s => s.type === 'READ_CSV' || s.type === 'READ_FILE' || s.type === 'INPUT') + 1;
+  work.splice(at, 0, mkStep('TRANSFORM', { operation: op }, 'Transform data'));
+  notes.push(`Added “${op}”, because your request mentions ${column}, which only ${dataset} has.`);
+  // A later "select columns ..." that leaves the joined column out would throw it away again.
+  for (const s of work.slice(at + 1)) {
+    const m = s.type === 'TRANSFORM' ? /^(\s*select(?:\s+columns)?\s+)(.+)$/i.exec(s.config.operation ?? '') : null;
+    if (!m || m[2].split(',').some(c => squash(c) === squash(column))) continue;
+    s.config.operation = `${m[1]}${m[2].trim()}, ${column}`;
+    notes.push(`Kept ${column} in “${s.config.operation.trim()}”.`);
+  }
+}
+
+const sameTable = (name: string, file: string) => squash(name) === squash(file.replace(/\.[a-z0-9]+$/i, ''));
+
+/**
+ * The run stopped on a column the table does not have. When the request names that column and exactly one uploaded table
+ * has it, the plan has the wrong table, or none: read that table, or join it if the current one is needed as well.
+ * Anything less sure stays with the model, because a wrong table gives a clean run on the wrong rows.
+ */
+export function repairRunError(request: string, steps: Step[], error: string, datasets: DatasetOutline[] | undefined): Repaired | null {
+  const column = /There is no column “([^”]+)”/.exec(error)?.[1];
+  const reads = steps.filter(s => s.type === 'READ_CSV');
+  if (!column || !datasets?.length || reads.length > 1 || !words(request).includes(words(column))) return null;
+  const holders = datasets.filter(d => d.columns.some(c => squash(c) === squash(column)));
+  if (holders.length !== 1) return null;
+  const [holder] = holders;
+  const work = steps.map(s => ({ ...s, config: { ...s.config } }));
+  if (!reads.length) {
+    work.unshift(mkStep('READ_CSV', { file: holder.name, delimiter: ',' }, 'Read data'));
+    return { steps: work, notes: [`Read “${holder.name}” first, because the workflow read no data and that is the uploaded dataset with ${column}.`] };
+  }
+  const read = work.find(s => s.type === 'READ_CSV')!;
+  const current = datasets.find(d => sameTable(d.name, read.config.file ?? ''));
+  if (!current || current === holder) return null;
+  const notes: string[] = [];
+  if (!needsOwnColumn(request, work, current.columns, holder.columns)) {
+    read.config.file = holder.name;
+    return { steps: work, notes: [`Read “${holder.name}” instead of “${current.name}”, because that is the uploaded dataset with ${column}.`] };
+  }
+  const shared = current.columns.filter(c => holder.columns.some(h => squash(h) === squash(c)));
+  if (shared.length !== 1) return null;
+  addJoin(work, notes, holder.name, shared[0], column);
+  return { steps: work, notes };
+}
+
+export function repairByRules(request: string, steps: Step[], findings: Finding[], input: { columns: string[] } | undefined, datasets: DatasetOutline[] = []): Repaired | null {
   if (!findings.length || !input) return null;
   let work = steps.map(s => ({ ...s, config: { ...s.config } }));
   const notes: string[] = [];
@@ -193,21 +257,16 @@ export function repairByRules(request: string, steps: Step[], findings: Finding[
     const read = work.find(s => s.type === 'READ_CSV' && (s.config.file ?? '') === (f.dataset ?? ''));
     if (read) { read.config.file = f.other!; notes.push(`Read “${f.other}” instead of “${f.dataset ?? 'the dataset it was reading'}”, because that is the uploaded dataset your request talks about.`); }
   }
-  // A column only another dataset has: join it right after the data is read, so every later step can use the column.
+  // A column only another dataset has: bring that dataset in, or read it instead if nothing needs the current one.
   const joins = findings.filter(x => x.kind === 'missing_join' && x.dataset && x.other);
   if (joins.length === 1) {
     const [f] = joins;
-    const op = `join ${f.dataset} on ${f.other}`;
-    const at = work.findIndex(s => s.type === 'READ_CSV' || s.type === 'READ_FILE' || s.type === 'INPUT') + 1;
-    work.splice(at, 0, mkStep('TRANSFORM', { operation: op }, 'Transform data'));
-    notes.push(`Added “${op}”, because your request mentions ${f.column}, which only ${f.dataset} has.`);
-    // A later "select columns ..." that leaves the joined column out would throw it away again.
-    for (const s of work.slice(at + 1)) {
-      const m = s.type === 'TRANSFORM' ? /^(\s*select(?:\s+columns)?\s+)(.+)$/i.exec(s.config.operation ?? '') : null;
-      if (!m || m[2].split(',').some(c => squash(c) === squash(f.column!))) continue;
-      s.config.operation = `${m[1]}${m[2].trim()}, ${f.column}`;
-      notes.push(`Kept ${f.column} in “${s.config.operation.trim()}”.`);
-    }
+    const holder = datasets.find(d => d.name === f.dataset);
+    const read = work.find(s => s.type === 'READ_CSV');
+    if (holder && read && !needsOwnColumn(request, work, input.columns, holder.columns)) {
+      notes.push(`Read “${holder.name}” instead of “${read.config.file}”, because your request mentions ${f.column}, which only ${holder.name} has.`);
+      read.config.file = holder.name;
+    } else addJoin(work, notes, f.dataset!, f.other!, f.column!);
   }
   const negated = new Set<string>();   // one `in (a, b)` list is negated once, though each of its values was reported
   for (const f of findings.filter(x => x.kind === 'lost_not' && x.column && x.value)) {

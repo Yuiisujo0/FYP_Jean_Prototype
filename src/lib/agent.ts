@@ -17,7 +17,7 @@ import type { AgentRound, Step } from '../types';
 import { observeRun, REVISE_ON, type TestOutcome } from './observe.ts';
 import { describeChanges, reconcile } from './refine.ts';
 import type { DatasetOutline } from './grounding.ts';
-import { repairByRules } from './repair.ts';
+import { repairByRules, repairRunError } from './repair.ts';
 
 export interface RevisionReply {
   nodes: Step[];
@@ -77,7 +77,8 @@ export async function checkByRunning(initial: Step[], deps: AgentDeps, maxRevisi
       return { steps, rounds, status: 'open' };
     }
 
-    const fix = deps.rules !== false && deps.request && 'result' in outcome ? repairByRules(deps.request, steps, obs.findings, outcome.result.input) : null;
+    const rules = deps.rules !== false && deps.request;
+    const fix = !rules ? null : 'result' in outcome ? repairByRules(rules, steps, obs.findings, outcome.result.input, deps.datasets) : repairRunError(rules, steps, outcome.error, deps.datasets);
     if (fix) {
       record({ signals, sent: '', outcome: 'repaired', detail: `Ran it on your data: ${describeSignals(signals)} Fixed without asking the AI: ${fix.notes.join(' ')}` });
       steps = fix.steps;

@@ -8,7 +8,7 @@
 //   node tests/repeat-eval.ts --summary r-qwen25-7b          (only summarise the runs already saved)
 // Writes backend/eval/runs/<name>-r1.json ... -rN.json and <name>-summary.json.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
 const argv = process.argv.slice(2);
 const take = (flag: string) => {
@@ -23,12 +23,23 @@ const runs = Number(take('runs') || '3');
 if (!name) throw new Error('Give --name (the run files become <name>-r1.json, ...) or --summary <name>.');
 const file = (i: number) => `backend/eval/runs/${name}-r${i}.json`;
 
+/** Tasks the AI service never answered (out of allowance, down). Those are not wrong answers, so the run says nothing about the model. */
+const MAX_SERVICE_FAILURES = 2;
+const serviceFailures = (run: { rows: { error?: string; oneShot: { ran: boolean } }[] }) =>
+  run.rows.filter(r => r.error && !r.oneShot.ran && !/^invalid after repairs|did not return a usable workflow/.test(r.error));
+
 if (!summaryOnly) {
   for (let i = 1; i <= runs; i++) {
     if (existsSync(file(i))) { console.log(`run ${i}: ${file(i)} exists, kept`); continue; }
     console.log(`\n=== run ${i} of ${runs} ===`);
     const r = spawnSync(process.execPath, ['tests/agent-eval.ts', ...argv, '--name', `${name}-r${i}`], { stdio: 'inherit' });
     if (r.status !== 0) { console.error(`run ${i} failed (exit ${r.status}); run the same command again to resume`); process.exit(1); }
+    const failed = serviceFailures(JSON.parse(readFileSync(file(i), 'utf-8')));
+    if (failed.length > MAX_SERVICE_FAILURES) {
+      rmSync(file(i));
+      console.error(`run ${i} removed: the AI service failed on ${failed.length} tasks (${failed[0].error?.slice(0, 90)}). Fix that and run the same command again.`);
+      process.exit(1);
+    }
   }
 }
 
@@ -43,6 +54,7 @@ interface Run { model: string; provider: string; splits: string[]; date: string;
 const loaded: Run[] = [];
 for (let i = 1; existsSync(file(i)); i++) loaded.push(JSON.parse(readFileSync(file(i), 'utf-8')) as Run);
 if (!loaded.length) throw new Error(`No run files found for ${name}.`);
+if (loaded.some(r => serviceFailures(r).length > MAX_SERVICE_FAILURES)) throw new Error(`The AI service failed during a run of ${name}, so no summary was written.`);
 const n = loaded[0].rows.length;
 if (loaded.some(r => r.rows.length !== n)) throw new Error('The runs have different numbers of tasks, so they cannot be compared.');
 
