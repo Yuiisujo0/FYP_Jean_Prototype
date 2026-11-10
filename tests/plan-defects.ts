@@ -30,7 +30,6 @@ const outlines = names.map(n => ({ name: n, columns: data.datasets[n].columns })
 const ctx: RunContext = {
   listDatasets: async () => names.map((n, id) => ({ id, name: n, filename: `${n}.csv`, origin: 'upload' as const })),
   loadDataset: async id => data.datasets[names[id]],
-  saveTable: async () => {},
   fetchJson: async () => { throw new Error('no network'); },
 };
 const all = process.argv.includes('--all');

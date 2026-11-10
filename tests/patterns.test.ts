@@ -14,10 +14,9 @@ interface Task {
 const data = JSON.parse(readFileSync('backend/eval/tasks.json', 'utf-8')) as { datasets: Record<string, Table>; tasks: Task[] };
 
 export const toSteps = (t: Task): Step[] => t.steps.map((s, i) => ({ id: `${t.id}-${i}`, type: s.type, name: s.type, description: '', config: s.config }));
-export const contextFor = (saved: Record<string, Table> = {}): RunContext => ({
+export const contextFor = (): RunContext => ({
   listDatasets: async () => Object.keys(data.datasets).map((name, id) => ({ id, name, filename: `${name}.csv` })),
   loadDataset: async id => data.datasets[Object.keys(data.datasets)[id]],
-  saveTable: async (name, table) => { saved[name] = table; },
   fetchJson: async () => { throw new Error('no network in tests'); },
 });
 

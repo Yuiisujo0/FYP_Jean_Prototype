@@ -139,7 +139,7 @@ export function ApproveBox({ editor }: { editor: FlowEditor }) {
   const { result, gate, approval, approvalCurrent, approvalForResult } = editor;
   if (!result || !gate) return null;
 
-  const saving = editor.pendingSaves.map(s => `“${s.name}”`).join(' and ');
+  const saving = editor.pendingActions.map(a => `“${a.table}”`).join(' and ');
   const doApprove = async () => {
     setApproving(true);
     setMessage('');

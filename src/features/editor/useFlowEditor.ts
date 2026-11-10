@@ -3,13 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { kindOf } from '../../data/nodeKinds';
 import { NODE_GAP_X, NODE_Y, chainEdges, defaultPosition, newEdge, orderSteps } from '../../lib/flowGraph';
 import { makeId } from '../../lib/id';
-import { runFlow } from '../../lib/engine';
+import { carryOut, runFlow } from '../../lib/engine';
 import { refineFlow } from '../../lib/api';
 import { datasetBriefs } from '../../lib/library';
 import { describeChanges, NO_CHANGE, reconcile } from '../../lib/refine';
-import { applySaves, holdSaves, markHeld, withMessages, type HeldSave } from '../../lib/heldSaves';
 import { approve, assumptionsFor, emptyDecisions, reviewGate, tableHash, workflowHash, workflowKey, type ReviewDecisions } from '../../lib/review';
-import { runContext } from '../../lib/runContext';
+import { actContext, runContext } from '../../lib/runContext';
 import { opinionFor, secondOpinionException } from '../../lib/secondOpinion';
 import { errorCount, validateWorkflow } from '../../lib/validate';
 import { buildReport } from '../../lib/xlsx';
@@ -29,6 +28,12 @@ const toNode = (step: Step, index: number): StepNode => ({
   data: { step },
 });
 const toEdge = (e: FlowEdge): Edge => ({ id: e.id, source: e.source, target: e.target, type: 'smoothstep' });
+
+/** The result once its actions are made: nothing is pending any more, and each step says what it did. */
+const afterActions = (r: RunResult, done: { stepId: string; message: string }[]): RunResult => {
+  const said = new Map(done.map(d => [d.stepId, d.message]));
+  return { ...r, actions: [], trace: r.trace.map(t => (said.has(t.stepId) ? { ...t, message: said.get(t.stepId)! } : t)) };
+};
 
 /** What we compare to decide whether anything worth saving has changed (selection and measurements are ignored). */
 const signature = (name: string, steps: Step[], edges: Pick<FlowEdge, 'source' | 'target'>[]) =>
@@ -51,8 +56,6 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
   // The steps as they were when the result on screen was produced, and the reviewer's decisions about that result.
   const [ran, setRan] = useState<{ steps: Step[]; key: string } | null>(null);
   const [decisions, setDecisions] = useState<ReviewDecisions>(emptyDecisions);
-  // Saves the result on screen asked for. They are written only once it is approved.
-  const [heldSaves, setHeldSaves] = useState<HeldSave[]>([]);
 
   const steps = useMemo<Step[]>(
     () => nodes.map(n => ({ ...n.data.step, position: { x: Math.round(n.position.x), y: Math.round(n.position.y) } })),
@@ -145,22 +148,18 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
     setRuns(Object.fromEntries(ordered.map(s => [s.id, { state: 'waiting', message: 'Waiting' } as NodeRun])));
     setRan(null);
     setDecisions(emptyDecisions());
-    setHeldSaves([]);
     try {
-      const held = holdSaves(runContext);
-      const out = await runFlow(ordered, held.ctx, (id, state, message) => setRuns(r => ({ ...r, [id]: { state, message } })));
+      const out = await runFlow(ordered, runContext, (id, state, message) => setRuns(r => ({ ...r, [id]: { state, message } })));
       const disagreement = secondOpinionException(flowRef.current.secondOpinion, ordered);
-      let { result: shown, saves } = markHeld(disagreement ? { ...out, exceptions: [...out.exceptions, disagreement] } : out, held.held);
-      // A result that is exactly the one approved before (same workflow, same output) may act on that approval.
+      let shown = disagreement ? { ...out, exceptions: [...out.exceptions, disagreement] } : out;
+      // A result that is exactly the one approved before (same workflow, same output) acts on that approval.
       const approved = flowRef.current.approval;
-      if (saves.length && approved && approved.workflowHash === await workflowHash(ordered) && approved.outputHash === await tableHash(shown)) {
-        shown = withMessages(shown, await applySaves(runContext, saves));
-        saves = [];
+      if (shown.actions?.length && approved && approved.workflowHash === await workflowHash(ordered) && approved.outputHash === await tableHash(shown)) {
+        const done = await carryOut(shown.actions, actContext);
+        shown = afterActions(shown, done);
+        setRuns(r => ({ ...r, ...Object.fromEntries(done.map(d => [d.stepId, { state: 'complete' as const, message: d.message }])) }));
       }
-      const messages = new Map(shown.trace.map(t => [t.stepId, t.message]));
-      setRuns(r => Object.fromEntries(Object.entries(r).map(([id, nr]) => [id, messages.has(id) ? { ...nr, message: messages.get(id)! } : nr])));
       setResult(shown);
-      setHeldSaves(saves);
       setRan({ steps: ordered, key: workflowKey(ordered) });
       return 'done';
     } catch (e) {
@@ -177,7 +176,6 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
     setRunError('');
     setRan(null);
     setDecisions(emptyDecisions());
-    setHeldSaves([]);
   }, []);
 
   /* ---------- Review and approval of the result on screen ---------- */
@@ -218,19 +216,19 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
     if (!result || !ran || stale) throw new Error('Run the workflow again first.');
     const record = await approve(ran.steps, result, assumptions, decisions, approver);
     save({ approval: record });
-    if (heldSaves.length) {
+    // Approval is what lets the workflow act.
+    if (result.actions?.length) {
       let done: { stepId: string; message: string }[];
       try {
-        done = await applySaves(runContext, heldSaves);
+        done = await carryOut(result.actions, actContext);
       } catch (e) {
         throw new Error(`Approved, but the result could not be saved: ${e instanceof Error ? e.message : 'unknown error'}`);
       }
-      setHeldSaves([]);
-      setResult(r => (r ? withMessages(r, done) : r));
-      setRuns(r => ({ ...r, ...Object.fromEntries(done.map(d => [d.stepId, { ...r[d.stepId], state: 'complete' as const, message: d.message }])) }));
+      setResult(r => (r ? afterActions(r, done) : r));
+      setRuns(r => ({ ...r, ...Object.fromEntries(done.map(d => [d.stepId, { state: 'complete' as const, message: d.message }])) }));
     }
     return record;
-  }, [result, ran, stale, assumptions, decisions, save, heldSaves]);
+  }, [result, ran, stale, assumptions, decisions, save]);
 
   /** The Excel report of the result on screen: result, review and method. Marked as a draft unless approved. */
   const reportBytes = useCallback(() => {
@@ -273,7 +271,7 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
     refine, refining,
     stale, assumptions, decisions, gate, acceptException, reopenException, confirmAssumption,
     approval, approvalCurrent, approvalForResult, approveResult, reportBytes, checks: flow.checks ?? [], secondOpinion,
-    pendingSaves: heldSaves,
+    pendingActions: result?.actions ?? [],
   };
 }
 

@@ -27,7 +27,6 @@ const categories: Table = {
 const ctx = (): RunContext => ({
   listDatasets: async () => [{ id: 1, name: 'Items', filename: 'items.csv' }, { id: 2, name: 'Categories', filename: 'categories.csv' }],
   loadDataset: async id => (id === 1 ? items : categories),
-  saveTable: async () => {},
   fetchJson: async () => [],
 });
 let n = 0;

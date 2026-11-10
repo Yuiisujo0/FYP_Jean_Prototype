@@ -23,7 +23,6 @@ const results: Table = {
 const ctx: RunContext = {
   listDatasets: async () => [{ id: 1, name: 'Stock list', filename: 'results.csv' }],
   loadDataset: async () => results,
-  saveTable: async () => {},
   fetchJson: async () => [],
 };
 const step = (id: string, type: string, config: Record<string, string>): Step => ({ id, type, name: `${type} ${id}`, description: '', config });

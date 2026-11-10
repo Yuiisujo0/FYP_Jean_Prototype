@@ -36,7 +36,6 @@ const datasets = names.map(name => ({ name, columns: data.datasets[name].columns
 const ctx: RunContext = {
   listDatasets: async () => names.map((name, id) => ({ id, name, filename: `${name}.csv` })),
   loadDataset: async id => data.datasets[names[id]],
-  saveTable: async () => {},
   fetchJson: async () => { throw new Error('no network'); },
 };
 

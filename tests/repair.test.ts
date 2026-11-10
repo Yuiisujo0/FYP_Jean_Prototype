@@ -17,7 +17,6 @@ const names = Object.keys(data.datasets);
 const ctx: RunContext = {
   listDatasets: async () => names.map((n, id) => ({ id, name: n, filename: `${n}.csv`, origin: 'upload' as const })),
   loadDataset: async id => data.datasets[names[id]],
-  saveTable: async () => {},
   fetchJson: async () => { throw new Error('no network'); },
 };
 type Spec = [string, Record<string, string>][];

@@ -3,7 +3,7 @@
 // Run with: npm run test:database
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { runFlow, type RunContext } from '../src/lib/engine.ts';
+import { carryOut, runFlow, type NodeReport, type RunContext } from '../src/lib/engine.ts';
 import { explainStep } from '../src/lib/explain.ts';
 import { createLibrary, memoryStore, type ParsedFile } from '../src/lib/library.ts';
 import { parseUpload } from '../src/lib/tables.ts';
@@ -19,10 +19,15 @@ function setup() {
   const ctx: RunContext = {
     listDatasets: () => lib.list(),
     loadDataset: async id => { const d = await lib.get(id); return { columns: d!.columns, rows: d!.rows }; },
-    saveTable: (name, table, mode) => lib.saveResult(name, table, mode),
     fetchJson: async () => [],
   };
-  return { lib, ctx };
+  return { lib, ctx: { ...ctx, saveTable: lib.saveResult.bind(lib) } };
+}
+/** A run followed by its approval: the planned saves are carried out, and each step reports what it did. */
+async function runAndApprove(steps: Step[], ctx: RunContext & Parameters<typeof carryOut>[1], report: NodeReport) {
+  const result = await runFlow(steps, ctx, report);
+  for (const d of await carryOut(result.actions ?? [], ctx)) report(d.stepId, 'complete', d.message);
+  return result;
 }
 
 const results = 'name,stock\nAmina,35\nBen,80\nChen,42\n';
@@ -35,7 +40,7 @@ const rowsOf = async (lib: ReturnType<typeof setup>['lib'], name: string) => (aw
 test('a saved result is marked as a result, an upload as an upload', async () => {
   const { lib, ctx } = setup();
   await lib.upload(csv('results.csv', results), { name: 'results' });
-  await runFlow(flow('low'), ctx, quiet);
+  await runAndApprove(flow('low'), ctx, quiet);
   const all = await lib.list();
   assert.equal(all.find(d => d.name === 'results')!.origin, 'upload');
   assert.equal(all.find(d => d.name === 'low')!.origin, 'result');
@@ -44,8 +49,8 @@ test('a saved result is marked as a result, an upload as an upload', async () =>
 test('replace (the default, and what a model produces) replaces the earlier result', async () => {
   const { lib, ctx } = setup();
   await lib.upload(csv('results.csv', results), { name: 'results' });
-  await runFlow(flow('low'), ctx, quiet);
-  await runFlow(flow('low', 'replace'), ctx, quiet);
+  await runAndApprove(flow('low'), ctx, quiet);
+  await runAndApprove(flow('low', 'replace'), ctx, quiet);
   assert.equal((await rowsOf(lib, 'low')).rows.length, 2);
 });
 
@@ -55,9 +60,9 @@ test('append creates the table the first time, then adds the rows on each run', 
   const messages: string[] = [];
   const report = (_id: string, state: string, m: string) => { if (state === 'complete' && /Created|Added/.test(m)) messages.push(m); };
 
-  await runFlow(flow('log', 'append'), ctx, report);
+  await runAndApprove(flow('log', 'append'), ctx, report);
   assert.equal((await rowsOf(lib, 'log')).rows.length, 2);
-  await runFlow(flow('log', 'append'), ctx, report);
+  await runAndApprove(flow('log', 'append'), ctx, report);
   const log = await rowsOf(lib, 'log');
   assert.equal(log.rows.length, 4);
   assert.deepEqual(log.rows.map(r => r.name), ['Amina', 'Chen', 'Amina', 'Chen']);
@@ -69,7 +74,7 @@ test('append keeps the table’s own column names when the spelling differs, and
   const { lib, ctx } = setup();
   await lib.upload(csv('results.csv', results), { name: 'results' });
   await lib.saveResult('log', { columns: ['Name', 'Stock'], rows: [{ Name: 'Old', Stock: '1' }] }, 'replace');
-  await runFlow(flow('log', 'append'), ctx, quiet);                       // name,stock matches Name,Stock once spelling is ignored
+  await runAndApprove(flow('log', 'append'), ctx, quiet);                       // name,stock matches Name,Stock once spelling is ignored
   const log = await rowsOf(lib, 'log');
   assert.deepEqual(log.columns, ['Name', 'Stock']);
   assert.deepEqual(log.rows.map(r => r.Name), ['Old', 'Amina', 'Chen']);
@@ -87,7 +92,7 @@ test('a workflow cannot replace data the user uploaded, but may add rows to it',
 
   await assert.rejects(runFlow(readLate(), ctx, quiet), /data you uploaded.*append/);
   assert.equal((await rowsOf(lib, 'results')).rows.length, 3);              // not overwritten
-  await runFlow(readLate('append'), ctx, quiet);
+  await runAndApprove(readLate('append'), ctx, quiet);
   const m = await rowsOf(lib, 'results');
   assert.equal(m.rows.length, 4);
   assert.equal(m.origin, 'upload');                                       // still the user's own data

@@ -1,7 +1,7 @@
 // Run with: npm run test:engine   (Node 24 runs TypeScript directly; no extra packages needed.)
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { compileCondition, mixesAndOr, runFlow, toCsv, type RunContext, type Table } from '../src/lib/engine.ts';
+import { carryOut, compileCondition, mixesAndOr, runFlow, toCsv, type RunContext, type Table } from '../src/lib/engine.ts';
 import type { Step } from '../src/types.ts';
 
 const results: Table = {
@@ -49,26 +49,32 @@ test('malformed conditions are rejected', () => {
 
 const step = (type: string, config: Record<string, string>, name = type): Step => ({ id: name, type, name, description: '', config });
 
-function context(saved: Record<string, Table> = {}): RunContext {
+function context(): RunContext {
   return {
     listDatasets: async () => [{ id: 1, name: 'Stock list', filename: 'results.csv' }],
     loadDataset: async () => results,
-    saveTable: async (name, t) => { saved[name] = t; },
     fetchJson: async () => [{ id: 1, tag: 'a' }, { id: 2 }],
   };
 }
+/** Where carried-out saves land in these tests. */
+const saveInto = (saved: Record<string, Table>) => ({ saveTable: async (name: string, t: Table) => { saved[name] = t; } });
 const quiet = () => {};
 
-test('read, filter, save, output on stored data', async () => {
+test('read, filter, save, output on stored data: the run plans the save, and carrying it out writes it', async () => {
   const saved: Record<string, Table> = {};
   const result = await runFlow([
     step('READ_CSV', { file: 'results.csv' }),
     step('FILTER', { condition: 'stock < 50' }),
     step('DATABASE', { table: 'low_stock' }),
     step('OUTPUT', { format: 'table' }),
-  ], context(saved), quiet);
+  ], context(), quiet);
   assert.deepEqual(result.rows.map(r => r.Item), ['Amina', 'Mei']);
+  assert.deepEqual(saved, {}, 'a run writes nothing');
+  assert.deepEqual(result.actions?.map(a => [a.kind, a.stepId, a.table, a.mode, a.rows.length]), [['save', 'DATABASE', 'low_stock', 'replace', 2]]);
+  assert.equal(result.trace[2].message, 'Will save 2 rows to “low_stock” when you approve the result (nothing is saved yet)');
+  const done = await carryOut(result.actions!, saveInto(saved));
   assert.equal(saved.low_stock.rows.length, 2);
+  assert.deepEqual(done, [{ stepId: 'DATABASE', message: 'Saved 2 rows to “low_stock” in the Data library (replaces earlier contents)' }]);
 });
 
 test('a dataset is found by name or by file name, with or without extension', async () => {
@@ -175,15 +181,14 @@ test('explainStep says what Run will do, including when it will not do it', asyn
 
 test('a preview (dry run) never saves anything and never calls the web', async () => {
   const { PreviewStop } = await import('../src/lib/engine.ts');
-  const saved: Record<string, Table> = {};
   const calls: string[] = [];
-  const ctx = { ...context(saved), fetchJson: async (u: string) => { calls.push(u); return []; } };
+  const ctx = { ...context(), fetchJson: async (u: string) => { calls.push(u); return []; } };
 
   const withDb = await runFlow([
     step('READ_CSV', { file: 'results.csv' }), step('FILTER', { condition: 'stock < 50' }), step('DATABASE', { table: 'low' }), step('OUTPUT', { format: 'table' }),
   ], ctx, quiet, { dryRun: true });
   assert.equal(withDb.rows.length, 2);          // the result is still computed
-  assert.deepEqual(saved, {});                  // but nothing was saved
+  assert.equal(withDb.actions, undefined);      // and a preview plans nothing
 
   await assert.rejects(
     runFlow([step('HTTP_REQUEST', { method: 'GET', url: 'https://x.test/a' }), step('OUTPUT', { format: 'table' })], ctx, quiet, { dryRun: true }),
@@ -191,9 +196,9 @@ test('a preview (dry run) never saves anything and never calls the web', async (
   );
   assert.deepEqual(calls, []);                  // no request was made
 
-  // a real run still saves
-  await runFlow([step('READ_CSV', { file: 'results.csv' }), step('DATABASE', { table: 'all_rows' })], ctx, quiet);
-  assert.equal(saved.all_rows.rows.length, 4);
+  // a real run plans the save; nothing is written until it is carried out
+  const real = await runFlow([step('READ_CSV', { file: 'results.csv' }), step('DATABASE', { table: 'all_rows' })], ctx, quiet);
+  assert.equal(real.actions?.[0].rows.length, 4);
 });
 
 /* ---------------- run register, lineage and exceptions (the "never silently wrong" guarantees) ---------------- */

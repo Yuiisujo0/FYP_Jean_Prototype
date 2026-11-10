@@ -18,7 +18,6 @@ const names = Object.keys(data.datasets);
 const ctx: RunContext = {
   listDatasets: async () => names.map((name, id) => ({ id, name, filename: `${name}.csv` })),
   loadDataset: async id => data.datasets[names[id]],
-  saveTable: async () => {},
   fetchJson: async () => { throw new Error('no network'); },
 };
 const asSteps = (steps: S[], tag: string): Step[] => steps.map((s, i) => ({ id: `${tag}-${i}`, type: s.type, name: s.type, description: '', config: s.config }));

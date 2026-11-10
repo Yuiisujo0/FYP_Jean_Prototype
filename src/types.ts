@@ -110,6 +110,22 @@ export interface NodeRun {
   message: string;
 }
 
+/**
+ * A change to the outside world that a run worked out but did not make. It is carried out only after the person approves
+ * the result (engine `carryOut`). Saving a table is the only kind so far.
+ */
+export interface PlannedSave {
+  kind: 'save';
+  stepId: string;
+  stepName: string;
+  /** The table in the Data library. */
+  table: string;
+  mode: 'replace' | 'append';
+  columns: string[];
+  rows: Record<string, string>[];
+}
+export type PlannedAction = PlannedSave;
+
 export interface RunResult {
   columns: string[];
   rows: Record<string, string>[];
@@ -124,6 +140,8 @@ export interface RunResult {
   register: RunRegister | null;
   /** The source table as read (kept in memory for the audit record; never stored or sent anywhere). */
   input?: { name: string; columns: string[]; rows: Record<string, string>[] };
+  /** What the workflow will do once the result is approved, in step order. Absent in a preview and in older results. */
+  actions?: PlannedAction[];
 }
 
 export interface StepTrace {

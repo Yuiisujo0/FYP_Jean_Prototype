@@ -21,7 +21,7 @@ const names = Object.keys(data.datasets);
 const ctx = (swap?: { name: string; table: Table }): RunContext => ({
   listDatasets: async () => names.map((name, id) => ({ id, name, filename: `${name}.csv` })),
   loadDataset: async id => (swap && names[id] === swap.name ? swap.table : data.datasets[names[id]]),
-  saveTable: async () => {}, fetchJson: async () => [],
+  fetchJson: async () => [],
 });
 const asSteps = (t: TaskFile['tasks'][number]): Step[] => t.steps.map((s, i) => ({ id: `s${i}`, type: s.type, name: s.type, config: s.config }) as Step);
 const fingerprint = (r: { columns: string[]; rows: Record<string, string>[] }) => JSON.stringify([r.columns, r.rows]);

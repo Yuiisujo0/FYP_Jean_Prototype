@@ -1,10 +1,13 @@
 /**
  * Runs a linear workflow on real rows, in the browser. Pure logic: everything that touches the outside world
- * (stored datasets, saving a table, HTTP) comes in through RunContext, so this file can be tested on its own.
+ * (stored datasets, HTTP) comes in through RunContext, so this file can be tested on its own.
+ *
+ * A run works out the answer and does not act on it. A step that changes the outside world (saving a table) becomes a
+ * planned action in the result; `carryOut` makes it, and the app calls that only after the person approves the result.
  *
  * FILTER conditions are parsed by a small hand-written parser. Nothing here uses eval or new Function.
  */
-import type { RowRecord, RunException, RunRegister, RunResult, Step, StepTrace } from '../types';
+import type { PlannedAction, RowRecord, RunException, RunRegister, RunResult, Step, StepTrace } from '../types';
 
 export type Row = Record<string, string>;
 export interface Table { columns: string[]; rows: Row[] }
@@ -19,8 +22,12 @@ export interface SaveResult { total: number; created: boolean }
 export interface RunContext {
   listDatasets: () => Promise<DatasetRef[]>;
   loadDataset: (id: number) => Promise<Table>;
-  saveTable: (name: string, table: Table, mode: SaveMode) => Promise<SaveResult | void>;
   fetchJson: (url: string) => Promise<unknown>;
+}
+
+/** What carrying out approved actions needs: the one place a workflow writes. */
+export interface ActContext {
+  saveTable: (name: string, table: Table, mode: SaveMode) => Promise<SaveResult | void>;
 }
 
 /** Thrown in a preview when a step would reach outside the app (a web request). Not an error in the workflow itself. */
@@ -670,6 +677,7 @@ export async function runFlow(steps: Step[], ctx: RunContext, report: NodeReport
   const sources = new Set<string>();
   const trace: StepTrace[] = [];
   const exceptions: RunException[] = [];
+  const actions: PlannedAction[] = [];
   // The row register of the current source: one record per source row, all "kept" until a step removes the row.
   const ledger: { source: string; rows: RowRecord[] } = { source: '', rows: [] };
   let input: RunResult['input'];
@@ -826,10 +834,11 @@ export async function runFlow(steps: Step[], ctx: RunContext, report: NodeReport
               : `Would save ${rows} to “${name}” (nothing is saved in a preview)`;
             break;
           }
-          const saved = await ctx.saveTable(name, table, mode);
-          if (mode === 'replace') message = `Saved ${rows} to “${name}” in the Data library (replaces earlier contents)`;
-          else if (saved && saved.created) message = `Created “${name}” in the Data library with ${rows}`;
-          else message = `Added ${rows} to “${name}”${saved ? `, which now has ${count(saved.total, 'row')}` : ''}`;
+          // Every check above has passed; the save itself waits for the person's approval.
+          actions.push({ kind: 'save', stepId: step.id, stepName: step.name, table: name, mode, columns: table.columns, rows: table.rows });
+          message = mode === 'append'
+            ? `Will add ${rows} to “${name}” when you approve the result (nothing is saved yet)`
+            : `Will save ${rows} to “${name}” when you approve the result (nothing is saved yet)`;
           break;
         }
 
@@ -893,5 +902,20 @@ export async function runFlow(steps: Step[], ctx: RunContext, report: NodeReport
     columns: cur.table.columns, rows: cur.table.rows,
     message: `Ran ${count(steps.length, 'step')}. The result has ${count(cur.table.rows.length, 'row')}.`,
     lineage: cur.ids, trace, exceptions, register, input,
+    ...(options.dryRun ? {} : { actions }),
   };
+}
+
+/** Makes the approved actions, in order, and says what each one did. Call it only for an approved result. */
+export async function carryOut(actions: PlannedAction[], ctx: ActContext): Promise<{ stepId: string; message: string }[]> {
+  const done: { stepId: string; message: string }[] = [];
+  for (const a of actions) {
+    const rows = count(a.rows.length, 'row');
+    const saved = await ctx.saveTable(a.table, { columns: a.columns, rows: a.rows }, a.mode);
+    const message = a.mode === 'replace' ? `Saved ${rows} to “${a.table}” in the Data library (replaces earlier contents)`
+      : saved && saved.created ? `Created “${a.table}” in the Data library with ${rows}`
+      : `Added ${rows} to “${a.table}”${saved ? `, which now has ${count(saved.total, 'row')}` : ''}`;
+    done.push({ stepId: a.stepId, message });
+  }
+  return done;
 }

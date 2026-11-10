@@ -1,6 +1,9 @@
 /** Connects the execution engine to the data library (stored in this browser) and the network. */
 import { getDataset, listDatasets, saveResult } from './library';
-import type { RunContext } from './engine';
+import type { ActContext, RunContext } from './engine';
+
+/** Where approved actions are made: a saved table goes into the Data library. */
+export const actContext: ActContext = { saveTable: (name, table, mode) => saveResult(name, table, mode) };
 
 export const runContext: RunContext = {
   listDatasets,
@@ -9,7 +12,6 @@ export const runContext: RunContext = {
     if (!d) throw new Error('That dataset no longer exists in your data library.');
     return { columns: d.columns, rows: d.rows };
   },
-  saveTable: (name, table, mode) => saveResult(name, table, mode),
   fetchJson: async url => {
     let res: Response;
     try {
