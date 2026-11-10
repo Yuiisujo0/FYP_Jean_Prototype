@@ -1,4 +1,5 @@
 import { AlertTriangle, Bot, CheckCircle2, Database, Download, LoaderCircle, Play, ShieldCheck, XCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { toCsv } from '../../lib/engine';
@@ -64,25 +65,33 @@ interface Props {
   editor: FlowEditor;
   onRun: () => void;
   onFocusNode: (id: string) => void;
+  /** Why there is no answer, if there is a reason; shown first, in place of "Ready to run". */
+  notice?: React.ReactNode;
 }
 
-export function CheckPanel({ editor, onRun, onFocusNode }: Props) {
+/** "14:02:31": when the last run finished, so pressing Run again visibly does something. */
+const clock = (t: number) => new Date(t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+export function CheckPanel({ editor, onRun, onFocusNode, notice }: Props) {
   const { issues, running, runs, result, runError, steps, ordered, preview } = editor;
   const errors = errorCount(issues);
   const total = steps.length;
   const done = Object.values(runs).filter(r => r.state === 'complete').length;
   const percent = total ? Math.round((done / total) * 100) : 0;
   const hasRun = Object.keys(runs).length > 0;
+  // A new result object means a run finished: note the time, so a second run with the same answer still shows it ran.
+  const [finishedAt, setFinishedAt] = useState<number | null>(null);
+  useEffect(() => { if (result || runError) setFinishedAt(Date.now()); }, [result, runError]);
 
   return (
     <div className="panel">
-      <div className={`check__status is-${errors ? 'danger' : issues.length ? 'warn' : 'ok'}`}>
+      {notice || <div className={`check__status is-${errors ? 'danger' : issues.length ? 'warn' : 'ok'}`}>
         {errors ? <XCircle size={22} /> : issues.length ? <AlertTriangle size={22} /> : <CheckCircle2 size={22} />}
         <div>
           <b>{errors ? 'Needs attention' : issues.length ? 'Valid with warnings' : 'Ready to run'}</b>
           <small>{issues.length ? `${issues.length} ${issues.length === 1 ? 'check' : 'checks'} to review` : 'All structural checks passed'}</small>
         </div>
-      </div>
+      </div>}
 
       {issues.length > 0 && (
         <ul className="check__list">
@@ -123,10 +132,13 @@ export function CheckPanel({ editor, onRun, onFocusNode }: Props) {
         </section>
       )}
 
-      <section className="check__block" aria-live="polite">
-        <h4>Preview <small>nothing is saved or sent</small></h4>
-        <PreviewView preview={preview} errors={errors} />
-      </section>
+      {/* One table at a time: the preview until it has been run; after that the run's result below, unless the steps changed. */}
+      {!(result && !editor.stale) && (
+        <section className="check__block" aria-live="polite">
+          <h4>Preview <small>nothing is saved or sent</small></h4>
+          <PreviewView preview={preview} errors={errors} />
+        </section>
+      )}
 
       <Button variant="primary" className="check__run" loading={running} disabled={errors > 0} icon={<Play size={15} />} onClick={onRun}>
         {running ? 'Running…' : hasRun ? 'Run again' : 'Run workflow'}
@@ -136,7 +148,7 @@ export function CheckPanel({ editor, onRun, onFocusNode }: Props) {
         <div className="check__run-panel">
           <div className="check__progress-head">
             <span>Run</span>
-            <b>{runError ? 'Failed' : result ? 'Complete' : `${percent}%`}</b>
+            <b>{runError ? 'Failed' : result ? 'Complete' : `${percent}%`}{!running && finishedAt && (result || runError) ? ` · ${clock(finishedAt)}` : ''}</b>
           </div>
           <div className="check__track"><i style={{ width: `${result ? 100 : percent}%` }} data-failed={runError ? '' : undefined} /></div>
           {runError && <p className="check__error">{runError}</p>}

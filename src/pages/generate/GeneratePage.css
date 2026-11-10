@@ -104,3 +104,9 @@
 .gen__model { margin: 0.75rem 0 0; color: var(--text-3); font-size: 0.8125rem; text-align: center; }
 .gen__model b { color: var(--text-2); font-weight: 620; }
 .gen__model a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
+
+/* No data yet: the same box as an error, on a soft amber, with its actions under the text on narrow screens. */
+.gen__nodata { flex-wrap: wrap; background: var(--warn-soft); color: var(--warn); }
+.gen__nodata span { flex: 1 1 260px; color: var(--text); line-height: 1.5; }
+.gen__nodata b { color: var(--warn); }
+.gen__nodata-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }

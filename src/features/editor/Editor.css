@@ -354,6 +354,26 @@ body:has(.editor__resize.is-dragging) * { cursor: var(--resize-cursor) !importan
 .editor__needs b { color: var(--text); font-weight: 650; }
 .editor__needs-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
+/* Why there is no answer: shown first on every screen, in place of "Ready to run". */
+.noanswer {
+  display: flex; gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 30%, transparent);
+  text-wrap: pretty;
+}
+.noanswer > svg { flex-shrink: 0; margin-top: 1px; color: var(--danger); }
+.noanswer > div { display: grid; gap: 0.45rem; min-width: 0; }
+.noanswer b { color: var(--danger); font-weight: 650; line-height: 1.3; }
+.noanswer p { margin: 0; color: var(--text); font-size: 0.875rem; line-height: 1.5; }
+.noanswer__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.2rem; }
+.noanswer__actions:empty { display: none; }
+.noanswer.is-warn { background: var(--warn-soft); box-shadow: 0 0 0 1px color-mix(in srgb, var(--warn) 30%, transparent); }
+.noanswer.is-warn > svg, .noanswer.is-warn b { color: var(--warn); }
+.noanswer.is-compact { padding: 0.8rem 0.9rem; box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 30%, transparent), var(--shadow-1); }
+.noanswer.is-compact p { font-size: 0.8125rem; }
+
 .check__block { display: grid; gap: 0.5rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
 .check__block h4 { font: 650 0.75rem var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
 .check__block h4 small { margin-left: 0.4rem; font-weight: 500; letter-spacing: 0; text-transform: none; }

@@ -57,6 +57,17 @@ export function GeneratePage() {
 
   useEffect(() => () => abort.current?.abort(), []);
 
+  // "Build it again" from a workflow: start building at once, as soon as the Data library has loaded (once only, and the
+  // flag is cleared so a page refresh does not build again).
+  const autoStart = useRef(!!(location.state as { auto?: boolean } | null)?.auto && !!initial);
+  useEffect(() => {
+    if (!autoStart.current || datasets === null) return;
+    autoStart.current = false;
+    navigate(location.pathname, { replace: true, state: null });
+    void run();
+    // run reads the prompt state, which is `initial` here
+  }, [datasets]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!busy) return;
     setSeconds(0);
@@ -64,7 +75,10 @@ export function GeneratePage() {
     return () => clearInterval(timer);
   }, [busy]);
 
-  const run = async () => {
+  // With an empty Data library there is nothing to work on, so say so before asking the AI (a request that names a web
+  // address can still fetch its own data).
+  const [noData, setNoData] = useState(false);
+  const run = async (anyway = false) => {
     const text = prompt.trim();
     if (!text || busy) return;
     const talk = smallTalk(text);
@@ -74,6 +88,12 @@ export function GeneratePage() {
       setPrompt('');
       return;
     }
+    if (!anyway && datasets?.length === 0 && !/https?:\/\//i.test(text)) {
+      setChat(null);
+      setNoData(true);
+      return;
+    }
+    setNoData(false);
     setChat(null);
     setError('');
     setBusy(true);
@@ -146,7 +166,7 @@ export function GeneratePage() {
         />
         <div className="gen__bar">
           <span className="gen__count">{prompt.length}/{MAX_LENGTH} · <kbd>Ctrl</kbd> <kbd>Enter</kbd> to build</span>
-          <Button variant="primary" size="lg" disabled={!prompt.trim()} loading={busy} icon={<Sparkles size={17} />} onClick={run}>
+          <Button variant="primary" size="lg" disabled={!prompt.trim()} loading={busy} icon={<Sparkles size={17} />} onClick={() => run()}>
             {busy ? 'Building…' : 'Build workflow'}
           </Button>
         </div>
@@ -178,11 +198,26 @@ export function GeneratePage() {
         </div>
       )}
 
+      {noData && !busy && (
+        <div className="gen__error gen__nodata" role="alert">
+          <Database size={18} aria-hidden />
+          <span>
+            <b>You have not added any data yet</b>
+            jwork works on tables you add: it reads them here in your browser. Add the sample tables (a staff list, employees, sales orders, inventory) to try it, or upload your own CSV or Excel file.
+          </span>
+          <div className="gen__nodata-actions">
+            <Button size="sm" variant="primary" loading={adding} icon={<Database size={15} />} onClick={async () => { await addSamples(); setNoData(false); }}>Add sample data</Button>
+            <Link className="btn btn--secondary btn--sm" to="/knowledge?tab=data">Upload a file</Link>
+            <Button size="sm" variant="ghost" onClick={() => run(true)}>Build anyway</Button>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="gen__error" role="alert">
           <AlertCircle size={18} aria-hidden />
           <span><b>Could not build this workflow</b>{error}</span>
-          <Button size="sm" onClick={run}>Try again</Button>
+          <Button size="sm" onClick={() => run()}>Try again</Button>
         </div>
       )}
 
@@ -242,7 +277,7 @@ export function GeneratePage() {
           <h2>Or start from an example</h2>
           {missingSamples > 0 && (
             <p className="gen__samples">
-              <span>The examples use sample tables (employees, sales orders, inventory). They are made up and stay in this browser.</span>
+              <span>The examples use sample tables (a staff list, employees, sales orders, inventory). They are made up and stay in this browser.</span>
               <Button size="sm" loading={adding} icon={<Database size={15} />} onClick={addSamples}>Add sample data</Button>
             </p>
           )}

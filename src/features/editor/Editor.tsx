@@ -6,8 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 import { Button } from '../../components/ui/Button';
 import { useSlider } from '../../components/ui/useSlider';
 import { categoryOf } from '../../data/nodeKinds';
-import { findDataset } from '../../lib/engine';
 import { plural } from '../../lib/format';
+import { whyNoAnswer } from '../../lib/whyNoAnswer';
 import { errorCount } from '../../lib/validate';
 import { KEYS, readString, writeString } from '../../lib/storage';
 import { useDatasets } from '../../state/useDatasets';
@@ -19,6 +19,7 @@ import { EditorToolbar } from './EditorToolbar';
 import { FlowNode } from './FlowNode';
 import { Inspector } from './Inspector';
 import { DRAG_TYPE, NodeLibrary } from './NodeLibrary';
+import { NoAnswerNotice } from './NoAnswerNotice';
 import { ResultView, runsWithoutSideEffects } from './ResultView';
 import { useFlowEditor, type StepNode } from './useFlowEditor';
 import './Editor.css';
@@ -74,7 +75,7 @@ export function Editor({ flow }: { flow: Flow }) {
   const fresh = !!(location.state as { fresh?: boolean } | null)?.fresh;
   const [view, setView] = useState<View>(() => (fresh || flow.nodes.length ? 'result' : 'steps'));
   const [tab, setTab] = useState<Tab>(() => (fresh ? 'check' : 'add'));
-  const { items: datasets } = useDatasets();
+  const { items: datasets, refresh: refreshDatasets } = useDatasets();
   const tabsRef = useRef<HTMLDivElement>(null);
   const tabSlider = useSlider(tabsRef, '[role="tab"][aria-selected="true"]', [tab]);
 
@@ -83,11 +84,9 @@ export function Editor({ flow }: { flow: Flow }) {
     if (!selected && tab === 'inspect') setTab('add');
   }, [selected, tab]);
 
-  // Read CSV steps whose dataset is not in the Data library. Only judged once the library has loaded.
-  const needsData = useMemo(
-    () => (datasets ? editor.steps.filter(st => st.type === 'READ_CSV' && !findDataset(datasets, st.config.file ?? '')) : []),
-    [datasets, editor.steps],
-  );
+  // Why this workflow cannot give an answer (no data, a missing table, a step that cannot run), in plain words.
+  // Only judged once the library has loaded.
+  const noAnswer = useMemo(() => whyNoAnswer(editor.steps, datasets), [datasets, editor.steps]);
 
   const displayNodes = useMemo<StepNode[]>(
     () => nodes.map(n => (runs[n.id] ? { ...n, data: { ...n.data, run: runs[n.id] } } : n)),
@@ -149,6 +148,18 @@ export function Editor({ flow }: { flow: Flow }) {
     setTab('inspect');
   };
 
+  // New data: check the library again, redo the preview, and run again if that is safe, so old "no data" messages go.
+  const dataAdded = async () => {
+    await refreshDatasets();
+    editor.dataChanged();
+    if (errorCount(issues) === 0 && runsWithoutSideEffects(editor)) await editor.run();
+    else editor.clearRun();
+  };
+
+  const notice = (compact = false) => noAnswer && (
+    <NoAnswerNotice why={noAnswer} request={flow.description} onFocusNode={focusNode} onDataAdded={dataAdded} compact={compact} />
+  );
+
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: 'add', label: 'Add' },
     { id: 'inspect', label: 'Inspect' },
@@ -179,6 +190,8 @@ export function Editor({ flow }: { flow: Flow }) {
           onShowSteps={() => setView('steps')}
           onFocusNode={focusNode}
           onRefine={editor.refine}
+          notice={notice()}
+          blocked={!!noAnswer && noAnswer.kind !== 'llm_step'}
         />
       ) : (
         <div className="editor__body">
@@ -208,23 +221,9 @@ export function Editor({ flow }: { flow: Flow }) {
                   <div className="editor__chips">
                     <span>{plural(nodes.length, 'step')}</span>
                     <span>Linear flow</span>
-                    {errorCount(issues) === 0 && nodes.length > 0 && <span className="is-ok">Valid</span>}
+                    {errorCount(issues) === 0 && nodes.length > 0 && !noAnswer && <span className="is-ok">Valid</span>}
                   </div>
-                  {needsData.length > 0 && (
-                    <div className="editor__needs" role="status">
-                      <Database size={18} aria-hidden />
-                      <span>
-                        <b>This workflow needs data</b>
-                        {needsData.length === 1
-                          ? <>“{needsData[0].config.file || 'a dataset'}” is not in your Data library.</>
-                          : <>{needsData.length} Read CSV steps have no matching dataset.</>}
-                      </span>
-                      <div className="editor__needs-actions">
-                        <Button size="sm" onClick={() => focusNode(needsData[0].id)}>Choose dataset</Button>
-                        <Link className="btn btn--primary btn--sm" to="/knowledge?tab=data">Upload data</Link>
-                      </div>
-                    </div>
-                  )}
+                  {noAnswer && notice(true)}
                 </div>
               </Panel>
             </ReactFlow>
@@ -269,7 +268,7 @@ export function Editor({ flow }: { flow: Flow }) {
               {tab === 'add' && <NodeLibrary onAdd={addFromLibrary} />}
               {tab === 'inspect' && <Inspector step={selected} onPatch={editor.patchStep} onDelete={editor.removeNode} />}
               {tab === 'ask' && <AskPanel busy={editor.refining} onSubmit={refine} />}
-              {tab === 'check' && <CheckPanel editor={editor} onRun={run} onFocusNode={focusNode} />}
+              {tab === 'check' && <CheckPanel editor={editor} onRun={run} onFocusNode={focusNode} notice={notice(true)} />}
             </div>
           </aside>
         </div>

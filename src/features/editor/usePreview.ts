@@ -14,7 +14,7 @@ export type PreviewState =
  * A live preview of what the workflow produces. It is a dry run: nothing is saved and no web address is called,
  * so it is safe to run on every change. `steps` must be in execution order.
  */
-export function usePreview(steps: Step[], enabled: boolean): PreviewState {
+export function usePreview(steps: Step[], enabled: boolean, dataVersion = 0): PreviewState {
   const [state, setState] = useState<PreviewState>({ status: 'idle' });
   const key = JSON.stringify(steps.map(s => [s.id, s.type, s.config]));
 
@@ -34,7 +34,7 @@ export function usePreview(steps: Step[], enabled: boolean): PreviewState {
     }, 500);
     return () => { live = false; clearTimeout(timer); };
     // `steps` is read when the key changes; moving a node on the canvas does not change the key.
-  }, [key, enabled]);
+  }, [key, enabled, dataVersion]);
 
   return state;
 }

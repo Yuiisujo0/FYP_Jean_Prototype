@@ -64,7 +64,10 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
   const flowEdges = useMemo<FlowEdge[]>(() => edges.map(e => ({ id: e.id, source: e.source, target: e.target })), [edges]);
   const issues = useMemo(() => validateWorkflow(steps, flowEdges), [steps, flowEdges]);
   const ordered = useMemo(() => orderSteps(steps, flowEdges), [steps, flowEdges]);
-  const preview = usePreview(ordered, errorCount(issues) === 0);
+  // Bumped when the Data library changes (sample data added), so the preview reads the new tables.
+  const [dataVersion, setDataVersion] = useState(0);
+  const dataChanged = useCallback(() => setDataVersion(v => v + 1), []);
+  const preview = usePreview(ordered, errorCount(issues) === 0, dataVersion);
   const selected = nodes.find(n => n.selected)?.data.step ?? null;
 
   /* ---------- Persist changes (debounced, flushed on leave) ---------- */
@@ -264,7 +267,7 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
   }, [steps, flowEdges, nodes, clearRun]);
 
   return {
-    nodes, edges, name, setName, steps, ordered, flowEdges, issues, selected, preview,
+    nodes, edges, name, setName, steps, ordered, flowEdges, issues, selected, preview, dataChanged,
     onNodesChange, onEdgesChange, onConnect, isValidConnection,
     addNode, patchStep, removeNode, selectNode,
     runs, running, result, runError, run, clearRun,

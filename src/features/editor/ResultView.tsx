@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, Bot, CheckCircle2, Database, Download, Info, LoaderCircle, Play, Send, Workflow } from 'lucide-react';
+import { AlertCircle, ArrowRight, Bot, CheckCircle2, Database, Download, Info, LoaderCircle, Play, RotateCcw, Send, Workflow } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
@@ -59,27 +59,41 @@ function ChangeBox({ busy, onSubmit }: { busy: boolean; onSubmit: (text: string)
   );
 }
 
-function TheAnswer({ editor, onRun, onShowSteps }: { editor: FlowEditor; onRun: () => void; onShowSteps: () => void }) {
+/**
+ * A run that stopped: what happened, and the fix a person can use without editing steps by hand. Building again goes
+ * through the checking agent; a quick AI edit of the broken plan did not (tried 2026-11-10: it ran, but answered 0 rows
+ * with no warning), so it is not offered here.
+ */
+function RunFailed({ editor, request, onShowSteps }: { editor: FlowEditor; request: string; onShowSteps: () => void }) {
+  const missingData = editor.runError.includes('No dataset matches');
+  return (
+    <div className="rv__problem" role="alert">
+      <AlertCircle size={18} aria-hidden />
+      <div>
+        <b>It could not run, so there is no answer yet</b>
+        <p>{editor.runError}</p>
+        <div className="rv__actions">
+          {missingData && <Link className="btn btn--primary btn--sm" to="/knowledge?tab=data"><Database size={15} aria-hidden /> Open Data library</Link>}
+          {request && (
+            <Link className={`btn ${missingData ? 'btn--secondary' : 'btn--primary'} btn--sm`} to="/generate" state={{ prompt: request, auto: true }}>
+              <RotateCcw size={15} aria-hidden /> Build it again
+            </Link>
+          )}
+          <Button size="sm" variant="ghost" icon={<Workflow size={15} />} onClick={onShowSteps}>See the steps</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TheAnswer({ editor, request, onRun, onShowSteps }: { editor: FlowEditor; request: string; onRun: () => void; onShowSteps: () => void }) {
   const { result, running, runError, issues, preview, stale } = editor;
   const errors = errorCount(issues);
 
   if (running) return <p className="check__hint"><LoaderCircle size={15} className="spin" aria-hidden /> Running it on your data…</p>;
+  if (editor.refining) return <p className="check__hint"><LoaderCircle size={15} className="spin" aria-hidden /> Asking the AI to change the steps…</p>;
 
-  if (runError) {
-    return (
-      <div className="rv__problem" role="alert">
-        <AlertCircle size={18} aria-hidden />
-        <div>
-          <b>It could not run</b>
-          <p>{runError}</p>
-          <div className="rv__actions">
-            {runError.includes('No dataset matches') && <Link className="btn btn--primary btn--sm" to="/knowledge?tab=data"><Database size={15} aria-hidden /> Open Data library</Link>}
-            <Button size="sm" icon={<Workflow size={15} />} onClick={onShowSteps}>See the steps</Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (runError) return <RunFailed editor={editor} request={request} onShowSteps={onShowSteps} />;
 
   if (result) {
     return (
@@ -148,13 +162,17 @@ interface Props {
   onShowSteps: () => void;
   onFocusNode: (id: string) => void;
   onRefine: (text: string) => Promise<{ text: string; ok: boolean }>;
+  /** Why there is no answer, if there is a reason; shown first. */
+  notice?: React.ReactNode;
+  /** The workflow cannot give an answer at all, so the notice replaces the answer instead of standing above it. */
+  blocked?: boolean;
 }
 
 /**
  * The purpose-first screen: the answer, what the AI understood, what needs a person's eye, then approve and download.
  * The canvas ("How it was done") is one click away for anyone who wants the steps.
  */
-export function ResultView({ editor, request, onRun, onShowSteps, onFocusNode, onRefine }: Props) {
+export function ResultView({ editor, request, onRun, onShowSteps, onFocusNode, onRefine, notice, blocked }: Props) {
   const { result, gate, ordered, checks } = editor;
   const toReview = result ? result.exceptions.length + editor.assumptions.length : 0;
 
@@ -166,7 +184,8 @@ export function ResultView({ editor, request, onRun, onShowSteps, onFocusNode, o
         )}
 
         <Section no={1} title="The answer">
-          <TheAnswer editor={editor} onRun={onRun} onShowSteps={onShowSteps} />
+          {notice}
+          {!blocked && <TheAnswer editor={editor} request={request} onRun={onRun} onShowSteps={onShowSteps} />}
         </Section>
 
         <Section no={2} title="What the AI understood" note="the steps, in plain words">
@@ -186,7 +205,7 @@ export function ResultView({ editor, request, onRun, onShowSteps, onFocusNode, o
           <button type="button" className="rv__link" onClick={onShowSteps}>See how it was done, step by step <ArrowRight size={14} aria-hidden /></button>
         </Section>
 
-        {result && gate && (
+        {result && gate && !blocked && (
           <>
             <Section no={3} title="What needs your eye" note={toReview ? undefined : 'nothing to decide'}>
               <NeedsYourEye editor={editor} onFocusNode={onFocusNode} />

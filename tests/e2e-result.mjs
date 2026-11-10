@@ -35,9 +35,9 @@ try {
   // Sample data, then an example request.
   await page.goto(`${base}/generate`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Add sample data' }).click();
-  await page.getByText(/Added 3 sample datasets/).waitFor();
+  await page.getByText(/Added 4 sample datasets/).waitFor();
   await page.getByRole('button', { name: 'Add sample data' }).waitFor({ state: 'detached' });
-  const example = process.env.EXAMPLE ?? 'From employees, list everyone in Sales earning over 6000, highest salary first';
+  const example = process.env.EXAMPLE ?? 'List the staff in the Sales & Marketing unit earning over 6000, highest salary first';
   await page.getByRole('button', { name: example }).click();
   const started = Date.now();
   await page.getByRole('button', { name: 'Build workflow' }).click();
@@ -56,6 +56,7 @@ try {
   assert.equal(sections.length, 4);
   const rows = await page.locator('.rv__table tbody tr').count();
   log('rows in the answer:', rows);
+  if (!process.env.EXAMPLE) assert.equal(rows, 5, 'the staff example: five people in Sales & Marketing over 6000');
   log('understood:', (await page.locator('.rv__explain').innerText()).replace(/\n/g, ' / '));
   await shot('result-02-result-view');
 
