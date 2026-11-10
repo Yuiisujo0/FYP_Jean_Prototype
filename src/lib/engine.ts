@@ -140,6 +140,7 @@ export function mixesAndOr(condition: string): boolean {
 /** A condition in plain words, e.g. `stock < 5 and category == Tools` becomes `stock is less than 5 and category is Tools`. */
 export function describeCondition(condition: string): string {
   let tokens: string[];
+  condition = condition.replace(/`\s*([^`]*?)\s*`/g, '$1');   // `Monthly Salary (RM)` reads as Monthly Salary (RM)
   try { tokens = tokenize(condition); } catch { return condition; }
   const words: Record<string, string> = { '==': 'is', '=': 'is', '!=': 'is not', '<': 'is less than', '<=': 'is at most', '>': 'is more than', '>=': 'is at least' };
   return tokens
@@ -163,16 +164,46 @@ export function checkCondition(text: string, columns: string[]): (row: Row) => C
   };
 }
 
+/** A column name the tokenizer would split: it has a space, a bracket, a comma, a quote or a comparison sign in it. */
+const splitsWhenRead = (name: string) => /[\s()<>=!"',]/.test(name.trim());
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Company files name columns like `Monthly Salary (RM)` or `Full Name`. Before a condition is split into words, each such
+ * name (any case, outside quoted text) becomes one word that still finds its column (`Monthly_Salary_RM`), so
+ * `Monthly Salary (RM) > 6000` reads as a comparison on that column. Longest names first, so `Salary (RM)` cannot take
+ * part of `Monthly Salary (RM)`. `written` maps each new word back to the text as it was written.
+ */
+function joinColumnNames(text: string, columns: string[]): { text: string; written: Map<string, string> } {
+  const written = new Map<string, string>();
+  const names = columns.filter(splitsWhenRead).sort((a, b) => b.length - a.length);
+  if (!names.length && !text.includes('`')) return { text, written };
+  if (!names.length) names.push('\u0000');   // nothing to join; the pass below still drops the backticks
+  const pattern = new RegExp(`(?<![\\w])(${names.map(n => escapeRegExp(n.trim())).join('|')})(?![\\w])`, 'gi');
+  // Quoted text is a value, never a column: leave it as it is. Backticks, as models write them round a column name
+  // (`Monthly Salary (RM)`), are dropped with any space just inside them.
+  const joined = text.split(/("[^"]*"|'[^']*')/).map((part, i) => (i % 2 ? part : part.replace(/`\s*([^`]*?)\s*`/g, ' $1 ').replace(pattern, match => {
+    const word = norm(match).replace(/^./, ch => ch.toUpperCase()) || match;
+    const column = findColumn(columns, match.trim());
+    const safe = column && norm(column) === norm(word) ? word : match;
+    written.set(safe, match);
+    return safe;
+  }))).join('');
+  return { text: joined, written };
+}
+
 /** The columns a condition refers to, as written and as found (e.g. `stock` written, `Stock` found). */
 export function conditionColumns(text: string, columns: string[]): { written: string; column: string }[] {
   let tokens: string[];
-  try { tokens = tokenize(text); } catch { return []; }
+  const joined = joinColumnNames(text, columns);
+  try { tokens = tokenize(joined.text); } catch { return []; }
   const out: { written: string; column: string }[] = [];
   for (const t of tokens) {
     if (t[0] === '"' || t[0] === "'" || SYMBOL_OPS.has(t) || ['(', ')', ','].includes(t)) continue;
     if (['and', 'or', 'not', ...WORD_OPS].includes(t.toLowerCase())) continue;
     const column = findColumn(columns, t);
-    if (column && !out.some(o => o.written === t)) out.push({ written: t, column });
+    const as = joined.written.get(t) ?? t;
+    if (column && !out.some(o => o.written === as)) out.push({ written: as, column });
   }
   return out;
 }
@@ -192,7 +223,7 @@ export function conditionComparisons(text: string, columns: string[]): Compariso
 }
 
 function parseCondition(text: string, columns: string[], collect?: Comparison[]): Evaluator {
-  const tokens = tokenize(text);
+  const tokens = tokenize(joinColumnNames(text, columns).text);
   if (!tokens.length) throw new Error('The filter condition is empty.');
   let i = 0;
   let lastLeft: Operand | undefined;   // for `salary > 4000 and < 6000`: the second comparison reuses the column
