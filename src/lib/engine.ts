@@ -248,6 +248,15 @@ function parseCondition(text: string, columns: string[], collect?: Comparison[])
 
   /** One comparison between two operands. */
   const compareOperands = (left: Operand, right: Operand, o: string): Evaluator => {
+    // Models write `"Qty On Hand" < 5`. Quoted text that names a column, ordered (< > <= >=) or compared with a number,
+    // can only mean that column: the words of a column's name are never smaller than 5. Text against text stays a value.
+    const ordering = ['<', '<=', '>', '>='].includes(o);
+    const asColumn = (x: Operand, other: Operand): Operand => {
+      if (!('lit' in x) || x.num !== undefined) return x;
+      const col = findColumn(columns, x.lit);
+      return col && (ordering || ('num' in other && other.num !== undefined)) ? { col } : x;
+    };
+    [left, right] = [asColumn(left, right), asColumn(right, left)];
     if (collect && 'col' in left && 'lit' in right) collect.push({ column: left.col, op: o, literal: right.lit });
     const wantsNumber = ('num' in left && left.num !== undefined) || ('num' in right && right.num !== undefined);
     return row => {
