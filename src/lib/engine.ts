@@ -712,6 +712,9 @@ function describeUndecided(list: Undecided[]): string {
 
 const themOrIt = (n: number) => (n === 1 ? 'it' : 'them');
 
+/** How many of the rows each step passed on are kept in its trace, for the Logs panel (shown on screen only, never sent to the AI). */
+export const STEP_SAMPLE_ROWS = 50;
+
 export async function runFlow(steps: Step[], ctx: RunContext, report: NodeReport, options: RunOptions = {}): Promise<RunResult> {
   let cur: Tracked = { table: EMPTY, ids: [] };
   const sources = new Set<string>();
@@ -889,7 +892,10 @@ export async function runFlow(steps: Step[], ctx: RunContext, report: NodeReport
         default:
           throw new Error(`“${step.type}” cannot be run yet.`);
       }
-      trace.push({ stepId: step.id, stepName: step.name, type: step.type, rowsIn, rowsOut: cur.table.rows.length, columnsIn, columnsOut: cur.table.columns, message, skipped });
+      trace.push({
+        stepId: step.id, stepName: step.name, type: step.type, rowsIn, rowsOut: cur.table.rows.length, columnsIn, columnsOut: cur.table.columns, message, skipped,
+        sample: { rows: cur.table.rows.slice(0, STEP_SAMPLE_ROWS), source: cur.ids.slice(0, STEP_SAMPLE_ROWS) },
+      });
       report(step.id, 'complete', message);
     } catch (e) {
       if (e instanceof PreviewStop) throw e;

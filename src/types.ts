@@ -155,6 +155,8 @@ export interface StepTrace {
   message: string;
   /** The step did not do its job (it passed rows through unchanged). */
   skipped: boolean;
+  /** The first rows the step passed on and the source row numbers of each, for the Logs panel. Shown on screen only; never sent to the AI. */
+  sample?: { rows: Record<string, string>[]; source: number[][] };
 }
 
 export type ExceptionKind =
