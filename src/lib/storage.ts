@@ -14,6 +14,10 @@ export const KEYS = {
   profile: 'jwork.profile',
   sidebar: 'jwork.sidebar',
   sidePanel: 'jwork.sidePanel',
+  toolsOpen: 'jwork.toolsOpen',
+  logsPanel: 'jwork.logsPanel',
+  logsWidth: 'jwork.logsWidth',
+  editorLayout: 'jwork.editorLayout',
   history: 'jwork.history.v1',
   lastBackup: 'jwork.lastBackup',
 } as const;

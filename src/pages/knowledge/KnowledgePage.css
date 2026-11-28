@@ -100,3 +100,12 @@
 .kb__steps li b::before { content: counter(step) ". "; color: var(--text-3); font-weight: 500; }
 .kb__steps li span { color: var(--text-2); line-height: 1.5; }
 .kb__detail > .btn { margin-top: 0.75rem; }
+
+/* After files arrive from a prompt box: the request that came with them, ready to build. */
+.data__next {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1rem;
+  margin-bottom: 1rem; padding: 0.85rem 1rem; border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface)); animation: rise 0.16s ease-out;
+}
+.data__next > span:first-child { min-width: 0; flex: 1 1 22rem; line-height: 1.5; }
+.data__next-actions { display: inline-flex; gap: 0.5rem; flex-shrink: 0; }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Toast } from '../components/ui/Toast';
 import { Landing } from '../features/landing/Landing';
@@ -22,6 +22,12 @@ export function AppShell() {
   const { pathname } = useLocation();
 
   useEffect(() => setDrawerOpen(false), [pathname]);
+
+  // Every page opens at its top, not at wherever the last page was scrolled to. A layout effect, so the new page is never
+  // painted at the old position first. The Overview is left out: its welcome cover decides where it starts (Landing.tsx).
+  useLayoutEffect(() => {
+    if (pathname !== '/') window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname]);
 
   // Shrinking the window (or rotating a phone) collapses the sidebar by itself; it never stays open over the content.
   useEffect(() => {
@@ -68,10 +74,10 @@ export function AppShell() {
   return (
     <DialogsProvider>
       <div className={`shell ${collapsed ? 'is-collapsed' : ''}`}>
-        <Sidebar open={drawerOpen} phone={phone} collapsed={collapsed} onClose={() => setDrawerOpen(false)} onToggle={toggleSidebar} />
+        <Sidebar open={drawerOpen} phone={phone} collapsed={collapsed} onClose={() => setDrawerOpen(false)} />
         {drawerOpen && <button type="button" className="shell__scrim" aria-label="Close navigation" onClick={() => setDrawerOpen(false)} />}
         <div className="shell__main">
-          <Topbar onOpenMenu={toggleSidebar} />
+          <Topbar collapsed={collapsed} onToggleSidebar={toggleSidebar} />
           <main className="shell__content" id="main">
             <Outlet />
           </main>

@@ -18,6 +18,10 @@ import type { Flow, FlowEdge, NodeRun, Position, RunResult, Step } from '../../t
 export interface StepData extends Record<string, unknown> {
   step: Step;
   run?: NodeRun;
+  /** Where the step comes in the flow, counted from 1. */
+  order?: number;
+  /** Rows into and out of the step, and the most rows any step in the flow holds (the scale for its bar). */
+  rows?: { in: number; out: number; most: number };
 }
 export type StepNode = Node<StepData, 'step'>;
 
@@ -27,7 +31,7 @@ const toNode = (step: Step, index: number): StepNode => ({
   position: step.position ?? defaultPosition(index),
   data: { step },
 });
-const toEdge = (e: FlowEdge): Edge => ({ id: e.id, source: e.source, target: e.target, type: 'smoothstep' });
+const toEdge = (e: FlowEdge): Edge => ({ id: e.id, source: e.source, target: e.target });
 
 /** The result once its actions are made: nothing is pending any more, and each step says what it did. */
 const afterActions = (r: RunResult, done: { stepId: string; message: string }[]): RunResult => {
@@ -68,7 +72,9 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
   const [dataVersion, setDataVersion] = useState(0);
   const dataChanged = useCallback(() => setDataVersion(v => v + 1), []);
   const preview = usePreview(ordered, errorCount(issues) === 0, dataVersion);
-  const selected = nodes.find(n => n.selected)?.data.step ?? null;
+  // One step selected is the one being edited; several selected are only a group to move or delete.
+  const selectedIds = useMemo(() => nodes.filter(n => n.selected).map(n => n.id), [nodes]);
+  const selected = selectedIds.length === 1 ? nodes.find(n => n.selected)!.data.step : null;
 
   /* ---------- Persist changes (debounced, flushed on leave) ---------- */
   const flowRef = useRef(flow);
@@ -130,10 +136,12 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
     setNodes(ns => ns.map(n => (n.id === id ? { ...n, data: { ...n.data, step: { ...n.data.step, ...patch } } } : n)));
   }, []);
 
-  const removeNode = useCallback((id: string) => {
-    setNodes(ns => ns.filter(n => n.id !== id));
-    setEdges(es => es.filter(e => e.source !== id && e.target !== id));
+  const removeNodes = useCallback((ids: string[]) => {
+    const gone = new Set(ids);
+    setNodes(ns => ns.filter(n => !gone.has(n.id)));
+    setEdges(es => es.filter(e => !gone.has(e.source) && !gone.has(e.target)));
   }, []);
+  const removeNode = useCallback((id: string) => removeNodes([id]), [removeNodes]);
 
   const selectNode = useCallback((id: string | null) => {
     setNodes(ns => ns.map(n => (n.selected === (n.id === id) ? n : { ...n, selected: n.id === id })));
@@ -267,9 +275,9 @@ export function useFlowEditor(flow: Flow, save: (patch: Partial<Flow>) => void) 
   }, [steps, flowEdges, nodes, clearRun]);
 
   return {
-    nodes, edges, name, setName, steps, ordered, flowEdges, issues, selected, preview, dataChanged,
+    nodes, edges, name, setName, steps, ordered, flowEdges, issues, selected, selectedIds, preview, dataChanged,
     onNodesChange, onEdgesChange, onConnect, isValidConnection,
-    addNode, patchStep, removeNode, selectNode,
+    addNode, patchStep, removeNode, removeNodes, selectNode,
     runs, running, result, runError, run, clearRun,
     refine, refining,
     stale, assumptions, decisions, gate, acceptException, reopenException, confirmAssumption,

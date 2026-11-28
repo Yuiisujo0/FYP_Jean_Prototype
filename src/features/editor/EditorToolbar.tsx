@@ -1,5 +1,4 @@
-import { AlertTriangle, ArrowDownToLine, ArrowLeft, Check, CheckCircle2, Play, Table2, Workflow } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { AlertTriangle, ArrowDownToLine, Check, CheckCircle2, Play, Table2, Workflow } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Segmented } from '../../components/ui/Segmented';
 import { timeAgo } from '../../lib/format';
@@ -28,8 +27,6 @@ export function EditorToolbar({ name, onName, updatedAt, issues, running, onChec
 
   return (
     <div className="etool">
-      <Link to="/workflows" className="etool__back"><ArrowLeft size={16} aria-hidden /> <span>Workflows</span></Link>
-      <span className="etool__sep" aria-hidden />
       <input className="etool__name" value={name} onChange={e => onName(e.target.value)} aria-label="Workflow name" />
       <span className="etool__saved"><Check size={14} aria-hidden /> Saved {timeAgo(updatedAt).toLowerCase()}</span>
 

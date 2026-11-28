@@ -1,9 +1,10 @@
-import { Database, FileSpreadsheet, RefreshCw, Trash2, Upload, Workflow } from 'lucide-react';
+import { Database, FileSpreadsheet, RefreshCw, Sparkles, Trash2, Upload, Workflow } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button, IconButton } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Modal } from '../../components/ui/Modal';
+import { takeHandOff } from '../../lib/fileHandOff';
 import { deleteDataset, getDataset, inspectDataset, readUploadFile, uploadDataset, type ParsedFile, type UploadInfo, type UploadMode } from '../../lib/library';
 import { plural, timeAgo } from '../../lib/format';
 import { useDatasets } from '../../state/useDatasets';
@@ -42,6 +43,10 @@ export function DataLibrary({ uploadRef }: { uploadRef: React.RefObject<HTMLInpu
   const [pending, setPending] = useState<Pending | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [dragging, setDragging] = useState(false);
+  const navigate = useNavigate();
+  // Files dropped on a prompt box elsewhere (cover, Overview, Generate) arrive here; once they are in, the request that was
+  // typed with them can be built.
+  const [next, setNext] = useState<{ prompt: string; saved: number } | null>(null);
 
   const uploads = items?.filter(d => d.origin !== 'result') ?? [];
   const results = items?.filter(d => d.origin === 'result') ?? [];
@@ -65,10 +70,10 @@ export function DataLibrary({ uploadRef }: { uploadRef: React.RefObject<HTMLInpu
 
   const ask = (p: Omit<Pending, 'resolve'>) => new Promise<Decision | null>(resolve => setPending({ ...p, resolve }));
 
-  /** Handles files one after another. Unrelated files are saved straight away; likely updates ask the user. */
-  const processFiles = async (files: File[], forcedId?: number) => {
-    if (!files.length) return;
-    if (working.current) { notify('Another upload is still running.'); return; }
+  /** Handles files one after another. Unrelated files are saved straight away; likely updates ask the user. Returns how many were saved. */
+  const processFiles = async (files: File[], forcedId?: number): Promise<number> => {
+    if (!files.length) return 0;
+    if (working.current) { notify('Another upload is still running.'); return 0; }
     working.current = true;
     setProgress({ done: 0, total: files.length });
     let saved = 0, skipped = 0, failed = 0;
@@ -111,7 +116,15 @@ export function DataLibrary({ uploadRef }: { uploadRef: React.RefObject<HTMLInpu
     }
     setProgress(null);
     working.current = false;
+    return saved;
   };
+
+  useEffect(() => {
+    const handed = takeHandOff();
+    if (!handed) return;
+    void processFiles(handed.files).then(saved => setNext({ prompt: handed.prompt, saved }));
+    // once, when the page opens with files waiting
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const remove = async (d: DatasetInfo) => {
     if (!window.confirm(`Delete “${d.name}”? Workflows that read it will need another dataset.`)) return;
@@ -178,6 +191,26 @@ export function DataLibrary({ uploadRef }: { uploadRef: React.RefObject<HTMLInpu
         <div className="data__error card" role="alert">
           <span><b>Could not open your datasets</b>{error}</span>
           <Button size="sm" onClick={refresh}>Retry</Button>
+        </div>
+      )}
+
+      {next && !progress && (next.saved > 0 || next.prompt) && (
+        <div className="data__next card" role="status">
+          <span>
+            {next.saved > 0 ? <b>Your data is in.</b> : <b>Nothing was saved.</b>}{' '}
+            {next.prompt ? <>Your request is waiting: “{next.prompt}”</> : 'Next, describe the list or total you need from it.'}
+          </span>
+          <span className="data__next-actions">
+            <Button size="sm" variant="ghost" onClick={() => setNext(null)}>Dismiss</Button>
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<Sparkles size={15} />}
+              onClick={() => navigate('/generate', { state: next.prompt ? { prompt: next.prompt, auto: next.saved > 0 } : null })}
+            >
+              {next.prompt ? (next.saved > 0 ? 'Build it now' : 'Back to your request') : 'Describe a task'}
+            </Button>
+          </span>
         </div>
       )}
 

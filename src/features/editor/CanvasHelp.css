@@ -1,0 +1,96 @@
+/* The canvas help: eight small drawings that act each gesture out, one at a time. See CanvasHelp.tsx. */
+
+.gests { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 0.75rem; }
+@container canvas (min-width: 460px) {
+  .gests { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container canvas (min-width: 680px) {
+  .gests { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.gest { display: grid; align-content: start; gap: 0.1rem; min-width: 0; font-size: 0.75rem; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
+.gest b { margin-top: 0.45rem; font-size: 0.8125rem; font-weight: 650; color: var(--text); transition: color 0.2s; }
+.gest span b { margin: 0; font-size: inherit; }
+.gest span svg { vertical-align: -2px; color: var(--text); }
+.gest kbd, .gests__more kbd { white-space: nowrap; }
+/* A drawing is a small piece of the canvas: the same ground and the same dots. The one that is playing is ringed. */
+.gest__art {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 160 / 96;
+  border-radius: 12px;
+  background: radial-gradient(var(--grid-dot) 1px, transparent 1.3px) 0 0 / 12px 12px, var(--canvas-bg);
+  box-shadow: inset 0 0 0 1px var(--border);
+  transition: box-shadow 0.25s;
+}
+.gest.is-playing .gest__art { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.gest.is-playing > b { color: var(--accent-text); }
+.gests__more { display: block; }
+.gests__more svg { vertical-align: -2px; color: var(--text-2); }
+
+/* ---------- the drawing kit ---------- */
+.hx-card { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1; }
+.hx-ico { fill: var(--cat, var(--accent)); opacity: 0.8; }
+.hx-bar { fill: var(--text-3); opacity: 0.5; }
+.hx-bar--soft { opacity: 0.26; }
+.hx-wire { fill: none; stroke: var(--edge); stroke-width: 1.5; stroke-linecap: round; }
+.hx-wire--on { stroke: var(--accent); stroke-width: 1.8; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.hx-sel { fill: none; stroke: var(--accent); stroke-width: 1.8; }
+.hx-ghost { fill: none; stroke: var(--border-strong); stroke-width: 1.2; stroke-dasharray: 3 3; }
+.hx-box { fill: color-mix(in srgb, var(--accent) 12%, transparent); stroke: var(--accent); stroke-width: 1.2; vector-effect: non-scaling-stroke; transform-box: fill-box; transform-origin: 0 0; }
+.hx-cursor { fill: var(--text); stroke: var(--surface); stroke-width: 1.2; stroke-linejoin: round; paint-order: stroke; }
+.hx-hand { color: var(--text); fill: var(--surface); overflow: visible; }
+.hx-panel { fill: var(--surface); stroke: var(--border); stroke-width: 1; }
+.hx-field, .hx-rowhi { fill: var(--sunken); }
+.hx-dot { fill: var(--surface); stroke: var(--accent); stroke-width: 1.6; }
+.hx-key { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1; }
+.hx-keyshadow { fill: var(--border-strong); }
+.hx-keytext { font: 600 8.5px var(--font-sans); fill: var(--text-2); }
+.hx-mouse { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.3; }
+.hx-wheel { fill: var(--accent); }
+.hx-click { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.hx-vanish, .hx-pop { transform-box: fill-box; transform-origin: center; }
+.hx-zoom { transform-origin: 80px 38.5px; }
+
+/* ---------- the acting. Only the drawing whose turn it is moves; all eight share one clock (--hx-t = TURN_MS). ---------- */
+.gest { --hx-t: 2.8s; }
+.gest.is-playing .gest__art * { animation-duration: var(--hx-t); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); animation-iteration-count: infinite; }
+.gest.is-playing .hx-pan { animation-name: hx-pan; }
+.gest.is-playing .hx-zoom { animation-name: hx-zoom; }
+.gest.is-playing .hx-wheel { animation-name: hx-wheel; }
+.gest.is-playing .hx-cursor-edit { animation-name: hx-cursor-edit; }
+.gest.is-playing .hx-click { animation-name: hx-click; }
+.gest.is-playing .hx-ring-on, .gest.is-playing .hx-rowhi { animation-name: hx-on; }
+.gest.is-playing .hx-panel-in { animation-name: hx-panel-in; }
+.gest.is-playing .hx-move { animation-name: hx-move; }
+.gest.is-playing .hx-box { animation-name: hx-box; }
+.gest.is-playing .hx-cursor-box { animation-name: hx-cursor-box; }
+.gest.is-playing .hx-ring-late { animation-name: hx-on-late; }
+.gest.is-playing .hx-press { animation-name: hx-press; }
+.gest.is-playing .hx-vanish { animation-name: hx-vanish; }
+.gest.is-playing .hx-fade { animation-name: hx-fade; }
+.gest.is-playing .hx-wire--on { animation-name: hx-draw; }
+.gest.is-playing .hx-cursor-join { animation-name: hx-cursor-join; }
+.gest.is-playing .hx-cursor-add { animation-name: hx-cursor-add; }
+.gest.is-playing .hx-pop { animation-name: hx-pop; }
+.gest.is-playing .hx-pop-wire { animation-name: hx-pop-wire; }
+
+@keyframes hx-pan { 0%, 10% { translate: 16px 0; } 48%, 62% { translate: -24px 0; } 100% { translate: 16px 0; } }
+@keyframes hx-zoom { 0%, 10% { scale: 0.8; } 48%, 62% { scale: 1.2; } 100% { scale: 0.8; } }
+@keyframes hx-wheel { 0%, 10% { translate: 0 3px; } 48%, 62% { translate: 0 -1px; } 100% { translate: 0 3px; } }
+@keyframes hx-cursor-edit { 0%, 8% { translate: -30px 34px; } 34%, 88% { translate: 0 0; } 100% { translate: -30px 34px; } }
+@keyframes hx-click { 0%, 33% { scale: 0.3; opacity: 0; } 36% { scale: 0.45; opacity: 0.6; } 52%, 100% { scale: 1.5; opacity: 0; } }
+@keyframes hx-on { 0%, 36% { opacity: 0; } 42%, 90% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes hx-on-late { 0%, 44% { opacity: 0; } 52%, 90% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes hx-panel-in { 0%, 38% { translate: 46px 0; opacity: 0; } 56%, 90% { translate: 0 0; opacity: 1; } 100% { translate: 46px 0; opacity: 0; } }
+@keyframes hx-move { 0%, 10% { translate: -86px -38px; } 52%, 88% { translate: 0 0; } 100% { translate: -86px -38px; } }
+@keyframes hx-box { 0%, 10% { scale: 0; opacity: 1; } 50%, 86% { scale: 1; opacity: 1; } 94% { scale: 1; opacity: 0; } 100% { scale: 0; opacity: 0; } }
+@keyframes hx-cursor-box { 0%, 10% { translate: -101px -46px; } 50%, 90% { translate: 0 0; } 100% { translate: -101px -46px; } }
+@keyframes hx-press { 0%, 26% { translate: 0 0; } 31%, 36% { translate: 0 2.5px; } 42%, 100% { translate: 0 0; } }
+@keyframes hx-vanish { 0%, 34% { opacity: 1; scale: 1; } 50%, 84% { opacity: 0; scale: 0.82; } 96%, 100% { opacity: 1; scale: 1; } }
+@keyframes hx-fade { 0%, 34% { opacity: 1; } 46%, 84% { opacity: 0; } 96%, 100% { opacity: 1; } }
+@keyframes hx-draw { 0%, 10% { stroke-dashoffset: 1; } 52%, 88% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 1; } }
+@keyframes hx-cursor-join { 0%, 10% { translate: -56px 0; } 52%, 88% { translate: 0 0; } 100% { translate: -56px 0; } }
+@keyframes hx-cursor-add { 0%, 8% { translate: 36px 24px; } 32%, 88% { translate: 0 0; } 100% { translate: 36px 24px; } }
+@keyframes hx-pop { 0%, 40% { opacity: 0; scale: 0.6; } 58%, 90% { opacity: 1; scale: 1; } 100% { opacity: 0; scale: 0.6; } }
+@keyframes hx-pop-wire { 0%, 44% { opacity: 0; } 58%, 90% { opacity: 1; } 100% { opacity: 0; } }

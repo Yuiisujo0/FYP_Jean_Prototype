@@ -1,24 +1,38 @@
-import { MousePointerClick, Plus, Trash2, X } from 'lucide-react';
+import { MousePointerClick, Plus, SquareDashedMousePointer, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { NodeIcon } from '../../components/NodeIcon';
-import { IconButton } from '../../components/ui/Button';
+import { Button, IconButton } from '../../components/ui/Button';
 import { categoryOf, kindOf, labelOf } from '../../data/nodeKinds';
 import { useDatasets } from '../../state/useDatasets';
 import type { Step } from '../../types';
 
 interface Props {
   step: Step | null;
+  /** How many steps are selected. More than one is a group: nothing to edit, only to delete. */
+  several: number;
   onPatch: (id: string, patch: Partial<Step>) => void;
   onDelete: (id: string) => void;
+  onDeleteSeveral: () => void;
 }
 
-export function Inspector({ step, onPatch, onDelete }: Props) {
+export function Inspector({ step, several, onPatch, onDelete, onDeleteSeveral }: Props) {
   const [adding, setAdding] = useState(false);
   const [newKey, setNewKey] = useState('');
   const { items: datasets } = useDatasets(step?.type === 'READ_CSV' || step?.type === 'DATABASE');
   const uploads = datasets?.filter(d => d.origin !== 'result') ?? [];
   const results = datasets?.filter(d => d.origin === 'result') ?? [];
+
+  if (several > 1) {
+    return (
+      <div className="panel panel--center">
+        <SquareDashedMousePointer size={26} aria-hidden />
+        <h3 className="panel__title">{several} steps selected</h3>
+        <p className="panel__lead">Drag any of them to move them together. Click a single step to edit it.</p>
+        <Button variant="danger" size="sm" icon={<Trash2 size={15} />} onClick={onDeleteSeveral}>Delete {several} steps</Button>
+      </div>
+    );
+  }
 
   if (!step) {
     return (

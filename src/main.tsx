@@ -1,5 +1,4 @@
 import '@fontsource-variable/familjen-grotesk';
-import '@fontsource-variable/caveat';
 import '@fontsource-variable/jetbrains-mono';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

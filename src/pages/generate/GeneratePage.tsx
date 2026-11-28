@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, Check, Database, History, LoaderCircle, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, Database, History, LoaderCircle, MessageCircle, Paperclip, ShieldCheck, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
@@ -9,6 +9,7 @@ import { secondOpinion } from '../../lib/secondOpinion';
 import { generateFlow } from '../../lib/api';
 import { chainEdges, defaultPosition, orderSteps } from '../../lib/flowGraph';
 import { addHistory, clearHistory, loadHistory, type HistoryItem } from '../../lib/history';
+import { reducedMotion } from '../../lib/motion';
 import { datasetBriefs } from '../../lib/library';
 import { readProvider } from '../../lib/provider';
 import { PROVIDER_LABEL, secondModel } from '../../lib/providerConfig';
@@ -16,6 +17,7 @@ import { addSampleData, SAMPLE_NAMES } from '../../lib/samples';
 import { smallTalk, type SmallTalk } from '../../lib/smalltalk';
 import type { AgentRound, Flow } from '../../types';
 import { useDatasets } from '../../state/useDatasets';
+import { useFileDrop } from '../../state/useFileDrop';
 import { useWorkspace } from '../../state/WorkspaceContext';
 import './GeneratePage.css';
 
@@ -56,6 +58,34 @@ export function GeneratePage() {
   };
 
   useEffect(() => () => abort.current?.abort(), []);
+
+  // A CSV or Excel file dropped on this page, or chosen with the paperclip, goes to the Data library with the request typed here.
+  const files = useFileDrop(() => prompt);
+
+  // Choosing an example, a past request or a suggestion puts it in the box. The box answers: it comes into view, takes the
+  // cursor and its edge lights once, so it is plain where the words went and that Build is the next thing to press.
+  const card = useRef<HTMLDivElement>(null);
+  const use = (text: string) => {
+    setPrompt(text);
+    setChat(null);
+    const el = card.current;
+    if (!el) return;
+    el.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' });
+    el.querySelector('textarea')?.focus({ preventScroll: true });
+    if (reducedMotion()) return;
+    el.animate(
+      [{ boxShadow: '0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent)' }, { boxShadow: '0 0 0 14px transparent' }],
+      { duration: 700, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+    );
+  };
+
+  // Every stage is listed from the start, so it is clear what is still to come and roughly how far along it is.
+  const stages = [
+    { id: 'generate', title: 'Generating and validating' },
+    { id: 'test', title: 'Testing it on your data' },
+    ...(stage === 'opinion' || secondModel(readProvider()) ? [{ id: 'opinion', title: 'Getting a second opinion' }] : []),
+  ];
+  const at = stages.findIndex(st => st.id === stage);
 
   // "Build it again" from a workflow: start building at once, as soon as the Data library has loaded (once only, and the
   // flag is cleared so a page refresh does not build again).
@@ -145,13 +175,14 @@ export function GeneratePage() {
   };
 
   return (
-    <div className="page gen">
+    <div className="page gen" {...(busy ? {} : files.bind)}>
+      {files.overlay}
       <header className="gen__head">
         <h1>What do you need from your data?</h1>
         <p>Describe the list or total you need in plain words. jwork works out the steps, tests them on your data, and shows you which rows it kept, left out or could not judge, so you can check the answer before you send it on.</p>
       </header>
 
-      <div className="gen__card card">
+      <div ref={card} className={`gen__card card ${busy ? 'is-busy' : ''}`}>
         <label htmlFor="prompt" className="sr-only">Describe your automation</label>
         <textarea
           id="prompt"
@@ -165,12 +196,35 @@ export function GeneratePage() {
           onKeyDown={e => (e.metaKey || e.ctrlKey) && e.key === 'Enter' && run()}
         />
         <div className="gen__bar">
+          <button type="button" className="attach" onClick={files.pick} disabled={busy} aria-label="Add a CSV or Excel file" title="Add a CSV or Excel file"><Paperclip size={19} aria-hidden /></button>
+          {files.input}
           <span className="gen__count">{prompt.length}/{MAX_LENGTH} · <kbd>Ctrl</kbd> <kbd>Enter</kbd> to build</span>
           <Button variant="primary" size="lg" disabled={!prompt.trim()} loading={busy} icon={<Sparkles size={17} />} onClick={() => run()}>
             {busy ? 'Building…' : 'Build workflow'}
           </Button>
         </div>
       </div>
+
+      {busy && (
+        <ol className="gen__stages card" aria-live="polite">
+          {stages.map((st, i) => (
+            <li key={st.id} className={i < at ? 'is-done' : i === at ? 'is-active' : 'is-pending'}>
+              <span className="gen__marker">{i < at ? <Check size={14} strokeWidth={3} /> : i === at ? <LoaderCircle size={14} className="spin" /> : i + 1}</span>
+              <span className="gen__stage">
+                <b>{st.title}{i === at && <span className="gen__time" aria-hidden> · {seconds}s</span>}</b>
+                {i === at && st.id === 'generate' && seconds >= 8 && <span className="gen__found">The first request also loads the model, so it can take longer.</span>}
+                {i === at && st.id === 'test' && (
+                  <>
+                    <span className="gen__found">A dry run in your browser: nothing is saved, and the AI sees only counts and column names.</span>
+                    {rounds.map(r => <span key={r.round} className="gen__found">Round {r.round}: {r.detail}</span>)}
+                  </>
+                )}
+                {i === at && st.id === 'opinion' && <span className="gen__found">A second plan is written by another model and both are run in your browser. Different answers go on your review list.</span>}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
 
       <p className="gen__model">
         Using <b>{ollama.modelName}</b> · {PROVIDER_LABEL[ollama.provider.kind]}. <Link to="/settings?tab=model">Change model</Link>
@@ -186,7 +240,7 @@ export function GeneratePage() {
               {chat.talk.suggestions.length > 0 && (
                 <div className="gen__list">
                   {chat.talk.suggestions.map(text => (
-                    <button type="button" key={text} onClick={() => { setPrompt(text); setChat(null); }}>
+                    <button type="button" key={text} onClick={() => use(text)}>
                       <span>{text}</span>
                       <ArrowRight size={16} aria-hidden />
                     </button>
@@ -221,37 +275,6 @@ export function GeneratePage() {
         </div>
       )}
 
-      {busy && (
-        <ol className="gen__stages card" aria-live="polite">
-          <li className={stage === 'generate' ? 'is-active' : 'is-done'}>
-            <span className="gen__marker">{stage === 'generate' ? <LoaderCircle size={14} className="spin" /> : <Check size={14} />}</span>
-            <span>
-              <b>Generating and validating{stage === 'generate' ? ` · ${seconds}s` : ''}</b>
-              {stage === 'generate' && seconds >= 8 && <span className="gen__found">The first request also loads the model, so it can take longer.</span>}
-            </span>
-          </li>
-          {stage === 'test' && (
-            <li className="is-active">
-              <span className="gen__marker"><LoaderCircle size={14} className="spin" /></span>
-              <span>
-                <b>Testing it on your data · {seconds}s</b>
-                <span className="gen__found">A dry run in your browser: nothing is saved, and the AI sees only counts and column names.</span>
-                {rounds.map(r => <span key={r.round} className="gen__found">Round {r.round}: {r.detail}</span>)}
-              </span>
-            </li>
-          )}
-          {stage === 'opinion' && (
-            <li className="is-active">
-              <span className="gen__marker"><LoaderCircle size={14} className="spin" /></span>
-              <span>
-                <b>Getting a second opinion · {seconds}s</b>
-                <span className="gen__found">A second plan is written by another model and both are run in your browser. Different answers go on your review list.</span>
-              </span>
-            </li>
-          )}
-        </ol>
-      )}
-
       {!busy && history.length > 0 && (
         <section className="gen__examples gen__history">
           <div className="gen__history-head">
@@ -261,7 +284,7 @@ export function GeneratePage() {
           <div className="gen__list">
             {history.map(h => (
               <div key={h.id} className="gen__hrow">
-                <button type="button" onClick={() => { setPrompt(h.text); setChat(null); }} title="Use this request again">
+                <button type="button" onClick={() => use(h.text)} title="Use this request again">
                   <span>{h.text}</span>
                   <small>{new Date(h.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</small>
                 </button>
@@ -283,7 +306,7 @@ export function GeneratePage() {
           )}
           <div className="gen__list">
             {EXAMPLES.map(text => (
-              <button type="button" key={text} onClick={() => setPrompt(text)}>
+              <button type="button" key={text} onClick={() => use(text)}>
                 <span>{text}</span>
                 <ArrowRight size={16} aria-hidden />
               </button>

@@ -1,9 +1,10 @@
-import { ArrowRight, Clock3, Plus, Workflow as WorkflowIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { ArrowRight, Clock3, Paperclip, Plus, Sparkles, Workflow as WorkflowIcon } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { FlowPreview } from '../../components/FlowPreview';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { timeAgo } from '../../lib/format';
+import { useFileDrop } from '../../state/useFileDrop';
 import { useWorkspace } from '../../state/WorkspaceContext';
 import './DashboardPage.css';
 
@@ -16,13 +17,14 @@ const STEPS = [
 
 const PATH_D = 'M22 22 C 150 22, 150 50, 272 50 S 400 22, 522 22 S 650 50, 772 50 S 900 22, 990 22';
 const STOP_X = [22, 272, 522, 772];
-const LOOP_MS = 9000;   // one pass along the path
-const HOLD_MS = 1400;   // rest at the end, then start over
+const LOOP_MS = 7000;   // one pass along the path
+const HOLD_MS = 1200;   // rest at the end, then the light goes out
+const FADE_MS = 400;    // how long the light takes to go out once nothing holds it
 
 /**
- * The four steps. They reveal as the section scrolls into view, then one smooth light travels the whole path
- * without pausing (a single continuous motion, not step-by-step jumps), lighting each step as it passes.
- * Pointing at a step holds the light there; moving away lets it carry on from that spot.
+ * The four steps. They reveal as the section scrolls into view, then one smooth light travels the whole path once
+ * (a single continuous motion, not step-by-step jumps), lighting each step as it passes, and goes out. After that the
+ * section is still: nothing keeps moving beside someone who is working. Pointing at a step brings the light back to it.
  */
 function HowItWorks() {
   const root = useRef<HTMLElement>(null);
@@ -31,16 +33,32 @@ function HowItWorks() {
   const dotEl = useRef<HTMLSpanElement>(null);
   const progress = useRef(0);        // 0 to 1 along the path
   const held = useRef<number | null>(null);
+  const wake = useRef<() => void>(() => {});
   const [seen, setSeen] = useState(false);
+  const [rested, setRested] = useState(false);
   const [active, setActive] = useState(0);
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // The steps play once they can actually be seen: on screen, and not behind the welcome cover (which lies over this page when
+  // the site is opened; without this check the one pass was played out, unseen, while the cover was still up).
   useEffect(() => {
     const el = root.current;
     if (!el || typeof IntersectionObserver === 'undefined') { setSeen(true); return; }
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setSeen(true); io.disconnect(); } }, { threshold: 0.35 });
+    const html = document.documentElement;
+    let onScreen = false;
+    let timer = 0;
+    // `wait`: the cover has only just gone, and the page is busy settling for a moment, so the steps start a beat later.
+    const check = (wait: number) => {
+      if (!onScreen || html.classList.contains('cover-on')) return;
+      io.disconnect();
+      cover.disconnect();
+      timer = window.setTimeout(() => setSeen(true), wait);
+    };
+    const io = new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; check(0); }, { threshold: 0.35 });
+    const cover = new MutationObserver(() => check(350));
     io.observe(el);
-    return () => io.disconnect();
+    cover.observe(html, { attributes: true, attributeFilter: ['class'] });
+    return () => { io.disconnect(); cover.disconnect(); window.clearTimeout(timer); };
   }, []);
 
   useEffect(() => {
@@ -65,11 +83,16 @@ function HowItWorks() {
       stopAt.forEach((s, i) => { if (t >= s - 0.012) idx = i; });
       setActive(prev => (prev === idx ? prev : idx));
     };
-    if (reduced) { draw(stopAt[0], 0); return; }
+    // With reduced motion there is no travelling light: the whole path is simply drawn and every step is plain to read.
+    if (reduced) { draw(1, 0); setActive(-1); setRested(true); return; }
 
     let raf = 0;
-    let last = performance.now();
+    let running = false;
+    let last = 0;
     let rest = 0;
+    let fade = 1;
+    let finished = false;   // the one pass is over
+    const settle = () => { running = false; dot.style.opacity = '0'; setActive(-1); setRested(true); };
     const tick = (now: number) => {
       const dt = Math.min(now - last, 64);
       last = now;
@@ -78,23 +101,38 @@ function HowItWorks() {
         const target = stopAt[held.current];
         progress.current += (target - progress.current) * Math.min(1, dt / 160);
         rest = 0;
+        fade = 1;
         draw(progress.current, 1);
+      } else if (finished) {
+        // nothing holds the light any more: it goes out where it is, and the loop stops
+        fade -= dt / FADE_MS;
+        if (fade <= 0) { settle(); return; }
+        draw(progress.current, fade);
       } else if (progress.current >= 1) {
         rest += dt;
         draw(1, Math.max(0, 1 - rest / HOLD_MS * 1.6));
-        if (rest >= HOLD_MS) { progress.current = 0; rest = 0; }
+        if (rest >= HOLD_MS) { finished = true; settle(); return; }
       } else {
         progress.current = Math.min(1, progress.current + dt / LOOP_MS);
         draw(progress.current, progress.current < 0.03 ? progress.current / 0.03 : 1);
       }
       raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const start = () => {
+      if (running) return;
+      running = true;
+      last = performance.now();
+      raf = requestAnimationFrame(tick);
+    };
+    wake.current = start;
+    start();
+    return () => { cancelAnimationFrame(raf); wake.current = () => {}; };
   }, [seen, reduced]);
 
+  const hold = (i: number) => { held.current = i; wake.current(); };
+
   return (
-    <section className={`river ${seen ? 'is-seen' : ''}`} aria-label="How it works" ref={root}>
+    <section className={`river ${seen ? 'is-seen' : ''} ${rested ? 'is-rested' : ''}`} aria-label="How it works" ref={root}>
       <h2>How it works</h2>
       <p>Four easy steps, and you stay in charge of the last one.</p>
       <div className="stops" onMouseLeave={() => { held.current = null; }}>
@@ -109,10 +147,10 @@ function HowItWorks() {
             className={`stop ${i === active ? 'is-active' : i < active ? 'is-past' : ''}`}
             key={s.title}
             style={{ transitionDelay: seen ? `${i * 120}ms` : '0ms' }}
-            onMouseEnter={() => { held.current = i; }}
-            onFocus={() => { held.current = i; }}
+            onMouseEnter={() => hold(i)}
+            onFocus={() => hold(i)}
             onBlur={() => { held.current = null; }}
-            onClick={() => { held.current = i; }}
+            onClick={() => hold(i)}
             aria-current={i === active ? 'step' : undefined}
           >
             <span className="stop__no">{i + 1}</span>
@@ -125,8 +163,36 @@ function HowItWorks() {
   );
 }
 
+/**
+ * The one thing to do here, first: say what is needed. With words in it, it goes to Generate and starts building at once;
+ * empty, it just opens Generate, where the examples are.
+ */
+function AskBox({ onText, files }: { onText: (text: string) => void; files: ReturnType<typeof useFileDrop> }) {
+  const navigate = useNavigate();
+  const [text, setText] = useState('');
+  useEffect(() => onText(text), [text, onText]);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const prompt = text.trim();
+    navigate('/generate', { state: prompt ? { prompt, auto: true } : null });
+  };
+  return (
+    <form className="ask" onSubmit={submit}>
+      <Sparkles size={20} aria-hidden />
+      <input value={text} onChange={e => setText(e.target.value)} aria-label="Describe the list or total you need" placeholder="Describe the list or total you need" autoComplete="off" maxLength={500} />
+      <button type="button" className="attach" onClick={files.pick} aria-label="Add a CSV or Excel file" title="Add a CSV or Excel file"><Paperclip size={19} aria-hidden /></button>
+      {files.input}
+      <button type="submit" className="btn btn--primary">Generate <ArrowRight size={17} aria-hidden /></button>
+    </form>
+  );
+}
+
 export function DashboardPage() {
   const { flows, knowledge, ollama, profile } = useWorkspace();
+  // A CSV or Excel file dropped anywhere on the Overview, or chosen with the paperclip, goes to the Data library with what was typed.
+  const typed = useRef('');
+  const onText = useCallback((text: string) => { typed.current = text; }, []);
+  const files = useFileDrop(() => typed.current);
 
   const recent = flows.slice(0, 3);
 
@@ -134,28 +200,21 @@ export function DashboardPage() {
   const name = profile.name.trim();
 
   return (
-    <div className="page dash">
+    <div className="page dash" {...files.bind}>
+      {files.overlay}
       <header className="dash__top">
         {/* Nobody is greeted by name until they give one on the Profile page. */}
         <h1 className="welcome">{name ? <>Welcome back, <em>{name}</em></> : 'Welcome to jwork'}</h1>
+        <p className="dash__lead">Spreadsheet answers you can check before you send them on.</p>
+        <AskBox onText={onText} files={files} />
+        <section className="counts" aria-label="Workspace summary">
+          <Link to="/workflows" className="count"><b>{flows.length}</b> <span>saved {flows.length === 1 ? 'workflow' : 'workflows'}</span></Link>
+          <Link to="/knowledge" className="count"><b>{knowledge.length}</b> <span>knowledge {knowledge.length === 1 ? 'entry' : 'entries'}</span></Link>
+          <Link to="/settings?tab=model" className="count">
+            <span className={`count__on is-${ollama.status}`}><i aria-hidden />{modelValue}</span> <small>{ollama.modelName}</small>
+          </Link>
+        </section>
       </header>
-
-      <section className="counts" aria-label="Workspace summary">
-        <Link to="/workflows" className="count">
-          <b>{flows.length}</b>
-          <span>saved workflows</span>
-        </Link>
-        <Link to="/knowledge" className="count">
-          <b>{knowledge.length}</b>
-          <span>knowledge entries</span>
-        </Link>
-        <Link to="/settings?tab=model" className="count">
-          <span className={`count__on is-${ollama.status}`}><i aria-hidden />{modelValue}</span>
-          <small>{ollama.modelName}</small>
-        </Link>
-      </section>
-
-      <HowItWorks />
 
       <section className="recent-sec">
         <div className="head">
@@ -190,6 +249,8 @@ export function DashboardPage() {
           </div>
         )}
       </section>
+
+      <HowItWorks />
     </div>
   );
 }

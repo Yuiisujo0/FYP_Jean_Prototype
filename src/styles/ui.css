@@ -92,6 +92,99 @@
 .textarea:focus,
 .select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
 
+/* ---------- Select ----------
+   Still a real <select> (keyboard, screen readers and the tests use it as one). Everywhere, the box matches the other fields.
+   Where the browser lets a select's list be styled (Chrome and Edge), the list is ours too: a soft panel that opens from the
+   box, with the chosen option ticked. Other browsers keep their own list. */
+.select,
+select.input {
+  appearance: none;
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235a6c88' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.95rem center;
+  cursor: pointer;
+  font-weight: 560;
+}
+@supports (appearance: base-select) {
+  .select,
+  select.input {
+    appearance: base-select;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-right: 0.95rem;
+    background-image: none;
+  }
+  :is(.select, select.input)::picker-icon {
+    content: '';
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    background: var(--text-3);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+    transition: rotate 0.22s var(--ease);
+  }
+  :is(.select, select.input):open { border-color: var(--accent); box-shadow: var(--focus); }
+  :is(.select, select.input):open::picker-icon { rotate: 180deg; }
+  /* The list: opens downward out of the box, and closes a little faster than it opens. */
+  :is(.select, select.input)::picker(select) {
+    appearance: base-select;
+    min-width: anchor-size(width);
+    margin-block: 6px;
+    padding: 6px;
+    border: 0;
+    border-radius: var(--r-md);
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--border), var(--shadow-3);
+    color: var(--text-2);
+    transform-origin: top center;
+    opacity: 0;
+    translate: 0 -6px;
+    scale: 0.98;
+    transition: opacity 0.14s, translate 0.14s, scale 0.14s, overlay 0.14s allow-discrete, display 0.14s allow-discrete;
+  }
+  :is(.select, select.input):open::picker(select) {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+    transition: opacity 0.16s, translate 0.24s var(--ease), scale 0.24s var(--ease), overlay 0.24s allow-discrete, display 0.24s allow-discrete;
+  }
+  @starting-style {
+    :is(.select, select.input):open::picker(select) { opacity: 0; translate: 0 -6px; scale: 0.98; }
+  }
+  :is(.select, select.input) option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 38px;
+    padding: 0 0.7rem;
+    border-radius: 9px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-2);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.12s, color 0.12s;
+  }
+  :is(.select, select.input) option:is(:hover, :focus-visible) { outline: none; box-shadow: none; background: var(--sunken); color: var(--text); }
+  :is(.select, select.input) option:checked { color: var(--accent-text); font-weight: 650; }
+  :is(.select, select.input) option:disabled { color: var(--text-3); cursor: default; background: none; }
+  /* The tick sits at the end of the chosen row. */
+  :is(.select, select.input) option::checkmark {
+    content: '';
+    order: 1;
+    margin-left: auto;
+    width: 16px;
+    height: 16px;
+    background: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  :is(.select, select.input) optgroup { padding-top: 0.25rem; font-size: 0.75rem; font-weight: 650; color: var(--text-3); }
+  :is(.select, select.input) optgroup + optgroup { margin-top: 0.25rem; border-top: 1px solid var(--border); }
+}
+
 .search {
   display: flex;
   align-items: center;
@@ -438,3 +531,19 @@
   letter-spacing: 0.02em;
   user-select: none;
 }
+
+/* ---------- A file dragged over a prompt box (cover, Overview, Generate) ---------- */
+.filedrop {
+  position: fixed; inset: 14px; z-index: 1000; display: grid; place-content: center; justify-items: center; gap: 0.4rem;
+  padding: 2rem; border: 2px dashed var(--accent); border-radius: 18px; text-align: center;
+  background: color-mix(in srgb, var(--accent-soft) 88%, transparent); color: var(--accent-text);
+  backdrop-filter: blur(3px); pointer-events: none; animation: rise 0.12s ease-out;
+}
+.filedrop b { font-size: 1.2rem; }
+.filedrop small { max-width: 34ch; color: var(--text-2); line-height: 1.45; }
+/* The paperclip in a prompt box. */
+.attach {
+  flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--text-3); transition: background-color 0.16s, color 0.16s;
+}
+.attach:hover { background: var(--accent-soft); color: var(--accent-text); }

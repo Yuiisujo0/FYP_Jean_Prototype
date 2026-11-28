@@ -1,24 +1,44 @@
-/* The Overview, laid out like the landing page's workspace (design-previews/S-orbit.html):
-   a big welcome, the prompt, three large counts, "How it works" along a dotted path, and pebble-shaped recent workflows. */
-.dash { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4.5rem; padding-top: 2rem; }
+/* The Overview, in the order someone needs it: the welcome and the one thing to do (say what you need), a quiet line of
+   where things stand, the work to pick up again, and last "How it works" along a dotted path. The look follows the
+   landing page's workspace (design-previews/S-orbit.html). */
+.dash { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4rem; padding-top: 2rem; }
 
-/* ---------- Welcome ---------- */
-.dash__top { min-width: 0; }
+/* ---------- Welcome and the prompt ---------- */
+.dash__top { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: start; min-width: 0; }
 .welcome { font-size: clamp(2.2rem, 3.6vw, 3.25rem); font-weight: 700; line-height: 1.05; letter-spacing: -0.04em; }
 .welcome em { font-style: normal; color: var(--accent); }
+.dash__lead { margin-top: 0.75rem; max-width: 46ch; color: var(--text-2); font-size: 1.125rem; }
 
+.ask {
+  display: flex; align-items: center; gap: 0.75rem;
+  width: min(720px, 100%); height: 66px; margin-top: 1.75rem; padding: 0 0.55rem 0 1.4rem;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 999px;
+  background: var(--surface); box-shadow: var(--shadow-2);
+  transition: border-color 0.16s, box-shadow 0.25s var(--ease);
+}
+.ask:hover { border-color: var(--border-strong); }
+.ask:focus-within { border-color: var(--accent); box-shadow: var(--shadow-2), var(--focus); }
+.ask > svg { flex-shrink: 0; color: var(--accent); }
+.ask input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; font-size: 1.0625rem; }
+.ask input:focus-visible { box-shadow: none; }
+.ask input::placeholder { color: var(--text-3); opacity: 0.85; }
+.ask .btn { height: 48px; padding: 0 1.4rem; flex-shrink: 0; }
+.ask .btn svg { transition: translate 0.22s var(--ease); }
+.ask .btn:hover svg { translate: 3px 0; }
 
-/* ---------- Counts ---------- */
-.counts { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1rem 4rem; margin-top: -2rem; }
-.count { display: grid; text-decoration: none; color: inherit; transition: translate 0.25s var(--ease); }
-.count:hover { translate: 0 -3px; }
-.count b { font: 700 4rem/1 var(--font-display); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
-.count > span { margin-top: 0.3rem; color: var(--text-2); font-size: 0.95rem; }
-.count__on { display: inline-flex !important; align-items: center; gap: 0.65rem; margin-top: 1rem !important; color: var(--text) !important; font: 700 1.6rem/1.1 var(--font-display) !important; }
-.count__on i { width: 10px; height: 10px; border-radius: 50%; background: #e0a43a; box-shadow: 0 0 0 4px rgb(224 164 58 / 0.22); }
-.count__on.is-online i { background: #3bbf8a; box-shadow: 0 0 0 4px rgb(59 191 138 / 0.25); }
-.count__on.is-checking i, .count__on.is-unknown i { background: #8fa0b5; box-shadow: 0 0 0 4px rgb(143 160 181 / 0.22); }
-.count small { margin-top: 0.3rem; color: var(--text-3); font-size: 0.875rem; }
+/* ---------- Where things stand: one quiet line, each part a way in ---------- */
+.counts { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1.75rem; margin-top: 1.1rem; padding-left: 1.4rem; color: var(--text-3); font-size: 0.9rem; }
+.count { display: inline-flex; align-items: baseline; gap: 0.35rem; border-radius: 6px; color: inherit; text-decoration: none; transition: color 0.16s; }
+.count:hover { color: var(--accent-text); }
+.count b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; transition: color 0.16s; }
+.count:hover b { color: inherit; }
+.count__on { display: inline-flex; align-items: baseline; gap: 0.5rem; color: var(--text-2); font-weight: 600; }
+.count:hover .count__on { color: inherit; }
+.count__on i { width: 8px; height: 8px; border-radius: 50%; background: #e0a43a; translate: 0 -1px; }
+.count__on.is-online i { background: #3bbf8a; }
+.count__on.is-checking i, .count__on.is-unknown i { background: #8fa0b5; }
+.count__on.is-checking i { animation: pulse 1.2s ease-in-out infinite; }
+.count small { font-size: inherit; }
 
 /* ---------- Sections ---------- */
 .dash h2 { font-size: 1.9rem; letter-spacing: -0.03em; }
@@ -45,6 +65,8 @@
 .river.is-seen .stop { opacity: 0.62; translate: 0 0; }
 .river.is-seen .stop.is-past { opacity: 0.8; }
 .river.is-seen .stop.is-active { opacity: 1; }
+/* The light has made its one pass: every step is plain to read, and nothing moves until a step is pointed at. */
+.river.is-rested .stop { opacity: 1; }
 .stop:nth-child(even) { padding-top: 5.25rem; }
 .stop:focus-visible { outline: none; }
 .stop:focus-visible .stop__no { outline: 2px solid var(--accent); outline-offset: 3px; }
@@ -94,6 +116,14 @@
 .pebble:nth-child(3) { border-radius: 24px 36px 24px 36px; background: color-mix(in srgb, var(--c-source) 6%, var(--surface)); }
 .pebble:hover { translate: 0 -4px; box-shadow: var(--shadow-3); }
 .pebble .flow-preview { margin-bottom: 0.9rem; }
+/* Pointing at a workflow runs its little picture once: the steps answer one after another, in order. */
+.pebble:hover .flow-preview__node { animation: step-pop 0.45s var(--ease) both; }
+.pebble:hover .flow-preview__item:nth-child(2) .flow-preview__node { animation-delay: 70ms; }
+.pebble:hover .flow-preview__item:nth-child(3) .flow-preview__node { animation-delay: 140ms; }
+.pebble:hover .flow-preview__item:nth-child(4) .flow-preview__node { animation-delay: 210ms; }
+.pebble:hover .flow-preview__item:nth-child(5) .flow-preview__node { animation-delay: 280ms; }
+.pebble:hover .flow-preview__item:nth-child(n + 6) .flow-preview__node { animation-delay: 350ms; }
+@keyframes step-pop { 40% { scale: 1.18; } }
 .pebble h3 { font-size: 1.3rem; }
 .pebble p { color: var(--text-2); font-size: 0.95rem; margin-top: 0.3rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .pebble__meta { display: flex; justify-content: space-between; color: var(--text-3); font-size: 0.875rem; font-variant-numeric: tabular-nums; }
@@ -112,8 +142,9 @@
 }
 @media (max-width: 720px) {
   .dash { gap: 3rem; }
-  .counts { gap: 1rem 2.5rem; margin-top: -1rem; }
-  .count b { font-size: 3rem; }
+  .ask { height: 58px; margin-top: 1.25rem; padding-left: 1.1rem; }
+  .ask .btn { height: 42px; padding: 0 1rem; }
+  .counts { gap: 0.3rem 1.25rem; padding-left: 0.25rem; }
   .pebbles { grid-template-columns: 1fr; }
   .head { flex-wrap: wrap; }
 }

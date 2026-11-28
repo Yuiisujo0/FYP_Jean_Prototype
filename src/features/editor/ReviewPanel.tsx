@@ -1,11 +1,12 @@
-import { BadgeCheck, CircleAlert, FileSpreadsheet, Lock, Mail, TriangleAlert, Undo2 } from 'lucide-react';
-import { useState } from 'react';
+import { BadgeCheck, CircleAlert, FileSpreadsheet, ListChecks, Lock, Mail, TriangleAlert, Undo2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/ui/Button';
 import { emailDraftUrl, isEmailAddress } from '../../lib/emailDraft';
 import { slug } from '../../lib/format';
+import { useCountUp, useFirstShow } from '../../lib/motion';
 import { canAccept, MIN_REASON } from '../../lib/review';
 import { useWorkspace } from '../../state/WorkspaceContext';
-import type { RunException } from '../../types';
+import type { RunException, RunRegister } from '../../types';
 import type { FlowEditor } from './useFlowEditor';
 
 const MAX_ROWS_SHOWN = 12;
@@ -53,15 +54,57 @@ function ExceptionItem({ e, editor, onFocusNode }: { e: RunException; editor: Fl
   );
 }
 
+function LedgerPart({ tone, value, label, play }: { tone: 'kept' | 'out' | 'flag'; value: number; label: string; play: boolean }) {
+  const shown = useCountUp(value, play);
+  return (
+    <li className={`ledger__part is-${tone} ${value === 0 ? 'is-none' : ''}`}>
+      <b>{shown}</b>
+      <span><i aria-hidden />{label}</span>
+    </li>
+  );
+}
+
+/**
+ * The row ledger: one bar that stands for every row read, split into where each row ended up. The first time a result is
+ * shown the bar is swept in from the left and the counts run up, as if the rows were being gone through. The sentence under
+ * it says the same in words (and is what a screen reader hears), so the picture itself is hidden from assistive technology.
+ */
+function RowLedger({ reg, play }: { reg: RunRegister; play: boolean }) {
+  const parts = [
+    { tone: 'kept' as const, value: reg.kept, label: 'in the result' },
+    { tone: 'out' as const, value: reg.excluded, label: 'left out' },
+    { tone: 'flag' as const, value: reg.flagged, label: 'flagged' },
+  ];
+  return (
+    <div className="ledger" aria-hidden>
+      <div className="ledger__track">
+        <div className="ledger__bar">
+          {parts.filter(p => p.value > 0).map(p => <i key={p.tone} className={`ledger__seg is-${p.tone}`} style={{ flexGrow: p.value }} />)}
+        </div>
+      </div>
+      <ul className="ledger__key">
+        {parts.map(p => <LedgerPart key={p.tone} {...p} play={play} />)}
+      </ul>
+    </div>
+  );
+}
+
 /** How many rows were read, kept, left out and flagged, and whether that adds up. */
 export function ReviewTotals({ editor }: { editor: FlowEditor }) {
   const reg = editor.result?.register;
+  const play = useFirstShow(editor.result);
   if (!editor.result) return null;
   return reg ? (
-    <p className={`review__totals ${reg.balanced ? 'is-ok' : 'is-bad'}`}>
-      Read <b>{reg.total}</b> rows from {reg.source}: <b>{reg.kept}</b> in the result, <b>{reg.excluded}</b> left out by the steps,{' '}
-      <b>{reg.flagged}</b> flagged. {reg.balanced ? 'Every row is accounted for.' : 'The totals do not add up.'}
-    </p>
+    <div className={`review__sum ${play ? 'is-playing' : ''}`}>
+      {reg.total > 0 && <RowLedger reg={reg} play={play} />}
+      <p className={`review__totals ${reg.balanced ? 'is-ok' : 'is-bad'}`}>
+        {reg.balanced ? <ListChecks size={16} aria-hidden /> : <TriangleAlert size={16} aria-hidden />}
+        <span>
+          Read <b>{reg.total}</b> rows from {reg.source}: <b>{reg.kept}</b> in the result, <b>{reg.excluded}</b> left out by the steps,{' '}
+          <b>{reg.flagged}</b> flagged. {reg.balanced ? 'Every row is accounted for.' : 'The totals do not add up.'}
+        </span>
+      </p>
+    </div>
   ) : <p className="check__hint">This workflow reads no data, so there are no rows to account for.</p>;
 }
 
@@ -136,7 +179,17 @@ export function ApproveBox({ editor }: { editor: FlowEditor }) {
   const [approver, setApprover] = useState(profile.name);
   const [approving, setApproving] = useState(false);
   const [message, setMessage] = useState('');
+  // The approval made on this screen just now gets its moment (a stamp); one read back from storage is simply shown.
+  const [stamped, setStamped] = useState(false);
   const { result, gate, approval, approvalCurrent, approvalForResult } = editor;
+  // The last decision was made and approving became possible: the button says so once.
+  const canApprove = !!gate?.canApprove;
+  const wasBlocked = useRef(!canApprove);
+  const [unlocked, setUnlocked] = useState(false);
+  useEffect(() => {
+    setUnlocked(canApprove && wasBlocked.current);
+    wasBlocked.current = !canApprove;
+  }, [canApprove]);
   if (!result || !gate) return null;
 
   const saving = editor.pendingActions.map(a => `“${a.table}”`).join(' and ');
@@ -145,6 +198,7 @@ export function ApproveBox({ editor }: { editor: FlowEditor }) {
     setMessage('');
     try {
       await editor.approveResult(approver);
+      setStamped(true);
       setMessage(`Approved. ${saving ? `The result is now saved to ${saving}. ` : ''}The report now says so, with fingerprints of the workflow, the input and the result.`);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Could not approve.');
@@ -162,8 +216,8 @@ export function ApproveBox({ editor }: { editor: FlowEditor }) {
   return (
     <>
       {approval && approvalCurrent !== null && (
-        <p className={`review__approval ${approvalCurrent ? 'is-ok' : 'is-old'}`}>
-          <BadgeCheck size={16} aria-hidden />
+        <p className={`review__approval ${approvalCurrent ? 'is-ok' : 'is-old'} ${stamped && approvalForResult ? 'is-stamped' : ''}`}>
+          <BadgeCheck size={18} aria-hidden />
           <span>
             Approved by <b>{approval.approver}</b> on {when(approval.approvedAt)}.{' '}
             {!approvalCurrent ? 'The workflow has changed since, so that approval no longer applies.'
@@ -180,7 +234,7 @@ export function ApproveBox({ editor }: { editor: FlowEditor }) {
             </ul>
           )}
           {saving && <p className="check__hint">Approving also saves the result to {saving} in the Data library. Nothing is saved before that.</p>}
-          <div className="review__approve">
+          <div className={`review__approve ${unlocked ? 'is-unlocked' : ''}`}>
             <input className="input" value={approver} onChange={e => setApprover(e.target.value)} placeholder="Your name" aria-label="Approver name" />
             <Button variant="primary" size="sm" disabled={!gate.canApprove || !approver.trim()} loading={approving} icon={<BadgeCheck size={15} />} onClick={doApprove}>
               Approve result

@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ListChecks, Lock, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, ListChecks, Lock, Paperclip, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { gsap } from 'gsap';
 import { LogoMark } from '../../components/Logo';
 import { EXAMPLES, EXAMPLE_LABELS } from '../../data/examples';
 import { greeting } from '../../lib/format';
+import { useFileDrop } from '../../state/useFileDrop';
 import { useWorkspace } from '../../state/WorkspaceContext';
 import { createBackdrop, type Scene } from './backdrop';
 import './Landing.css';
@@ -89,6 +90,8 @@ function LandingView({ reveal, onClose }: { reveal: boolean; onClose: () => void
   const input = useRef<HTMLInputElement>(null);
   const canvases = useRef<{ web: HTMLCanvasElement | null; webBloom: HTMLCanvasElement | null; orb: HTMLCanvasElement | null; orbBloom: HTMLCanvasElement | null }>({ web: null, webBloom: null, orb: null, orbBloom: null });
   const finish = useRef<(instant?: boolean) => void>(() => {});
+  // A CSV or Excel file dropped anywhere on the cover, or chosen with the paperclip, goes to the Data library with what was typed.
+  const files = useFileDrop(() => prompt, () => finish.current(true));
   const go = useRef<() => void>(() => {});
   const typed = useRef(0);
   const closeRef = useRef(onClose);
@@ -108,7 +111,7 @@ function LandingView({ reveal, onClose }: { reveal: boolean; onClose: () => void
     const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const html = document.documentElement;
     const appRoot = document.getElementById('root');
-    const scene: Scene = { boost: 0, pull: 0, warp: calm || reveal ? 0 : 1, hidden: false, core: { x: window.innerWidth * 0.72, y: window.innerHeight * 0.48 } };
+    const scene: Scene = { boost: 0, pull: 0, warp: calm || reveal ? 0 : 1, hidden: false, hole: 0, core: { x: window.innerWidth * 0.72, y: window.innerHeight * 0.48 } };
 
     html.classList.add('cover-on');
     appRoot?.setAttribute('inert', '');
@@ -135,12 +138,17 @@ function LandingView({ reveal, onClose }: { reveal: boolean; onClose: () => void
       const parts = [...document.querySelectorAll<HTMLElement>('.dash > *')];
       if (!sidebar && !topbar && !parts.length) return null;
       const tl = gsap.timeline({ paused: true, defaults: { ease: 'power3.out' } });
+      // These parts are given their own layers now, while the cover is still shut, and start a hair above fully see-through
+      // (which the browser skips painting). So they are painted during the wait, and when the iris reaches them they only have
+      // to be moved. Painting them in the middle of the scroll was what made it catch.
+      const HIDDEN = 0.001;
+      gsap.set([sidebar, topbar, ...parts].filter(Boolean), { willChange: 'transform, opacity' });
       if (sidebar) {
         gsap.set(sidebar, { transition: 'none' });
         tl.fromTo(sidebar, { xPercent: -100 }, { xPercent: 0, duration: 0.45 }, 0.5);
       }
-      if (topbar) tl.fromTo(topbar, { y: -18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4 }, 0.55);
-      if (parts.length) tl.fromTo(parts, { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, stagger: { amount: 0.15 } }, 0.55);
+      if (topbar) tl.fromTo(topbar, { y: -18, opacity: HIDDEN }, { y: 0, opacity: 1, duration: 0.4 }, 0.55);
+      if (parts.length) tl.fromTo(parts, { y: 26, opacity: HIDDEN }, { y: 0, opacity: 1, duration: 0.3, stagger: { amount: 0.15 } }, 0.55);
       tl.set({}, {}, 1);   // the timeline is exactly 1 long, so progress(p) is the scroll progress
       return tl;
     };
@@ -148,30 +156,39 @@ function LandingView({ reveal, onClose }: { reveal: boolean; onClose: () => void
     const render = (p: number) => {
       scene.boost = clamp(p / 0.6) ** 1.6;
       scene.pull = clamp(p / 0.5) ** 3;
+      // Only opacity and position change here: both are handled by the graphics card without painting anything again.
       exitEls.forEach((n, i) => {
         const k = clamp((p - i * 0.015) / 0.22);
         n.style.opacity = String(1 - k);
         n.style.transform = k ? `translateY(${-36 * k}px)` : '';
-        n.style.filter = k ? `blur(${6 * k}px)` : '';
         n.style.pointerEvents = k > 0.6 ? 'none' : '';
       });
       wordEls.forEach((n, i) => { const k = clamp((p - i * 0.03) / 0.2); n.style.transform = k ? `translateY(${-125 * k}%) rotate(${-4 * k}deg)` : ''; });
       const k2 = clamp((p - 0.12) / 0.62), eased = k2 < 0.5 ? 2 * k2 * k2 : 1 - (-2 * k2 + 2) ** 2 / 2;
       const w = window.innerWidth, h = window.innerHeight, cx = scene.core.x, cy = scene.core.y;
       const r = eased * Math.hypot(Math.max(cx, w - cx), Math.max(cy, h - cy)) * 1.06;
-      if (r > 0.5) {
-        el.classList.add('is-iris');
-        el.style.setProperty('--cx', `${cx}px`); el.style.setProperty('--cy', `${cy}px`); el.style.setProperty('--r', `${r}px`);
-      } else el.classList.remove('is-iris');
+      scene.hole = r;   // the canvases stop drawing whatever the iris has already swallowed
+      const iris = (n: HTMLElement) => { n.style.setProperty('--iris-x', `${cx}px`); n.style.setProperty('--iris-y', `${cy}px`); n.style.setProperty('--iris-r', `${r}px`); };
+      if (r > 0.5) { el.classList.add('is-iris'); iris(el); } else el.classList.remove('is-iris');
+      // The ring and the flash are only touched while they can be seen.
       const rg = ring.current;
-      if (rg) { rg.style.left = `${cx}px`; rg.style.top = `${cy}px`; rg.style.width = rg.style.height = `${r * 2}px`; rg.style.opacity = r < 4 ? '0' : String(Math.min(1, (1 - k2) * 5)); }
+      if (rg) {
+        const o = r < 4 ? 0 : Math.min(1, (1 - k2) * 5);
+        rg.style.opacity = String(o);
+        if (o > 0) iris(rg);
+      }
       const fl = flash.current;
-      if (fl) { fl.style.opacity = String(0.5 * Math.sin(clamp((p - 0.2) / 0.2) * Math.PI)); fl.style.background = `radial-gradient(circle at ${cx}px ${cy}px, rgb(235 255 252 / .95), rgb(95 227 214 / .4) 34%, transparent 66%)`; }
+      if (fl) {
+        const o = 0.5 * Math.sin(clamp((p - 0.2) / 0.2) * Math.PI);
+        fl.style.opacity = String(o);
+        if (o > 0) iris(fl);
+      }
       // Once the iris has opened over the whole screen the cover is only a see-through sheet: let the pointer and keyboard
       // through to the app now, not at the very end of the scroll (the app is already pinned in place under it).
       const clear = k2 >= 0.85;
       if (clear !== through) {
         through = clear;
+        scene.hidden = clear;   // nothing of the cover is on screen now, so its canvases rest until it comes back
         el.style.visibility = clear ? 'hidden' : '';
         if (clear) { appRoot?.removeAttribute('inert'); if (el.contains(document.activeElement)) (document.activeElement as HTMLElement).blur(); }
         else appRoot?.setAttribute('inert', '');
@@ -257,7 +274,8 @@ function LandingView({ reveal, onClose }: { reveal: boolean; onClose: () => void
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    navigate('/generate', { state: { prompt: prompt.trim() } });
+    const text = prompt.trim();
+    navigate('/generate', { state: text ? { prompt: text, auto: true } : null });
     finish.current(true);
   };
 
@@ -266,7 +284,8 @@ function LandingView({ reveal, onClose }: { reveal: boolean; onClose: () => void
 
   return createPortal(
     <>
-      <div ref={root} className="landing" role="dialog" aria-modal="true" aria-label="Welcome to jwork" tabIndex={-1}>
+      <div ref={root} className="landing" role="dialog" aria-modal="true" aria-label="Welcome to jwork" tabIndex={-1} {...files.bind}>
+        {files.overlay}
         <div className="landing__aurora" aria-hidden><i /><i /><i /></div>
         <div className="landing__grain" aria-hidden />
         <div className="landing__scene" aria-hidden>
@@ -280,7 +299,7 @@ function LandingView({ reveal, onClose }: { reveal: boolean; onClose: () => void
         <header className="landing__bar landing__intro" data-exit>
           <div className="landing__brand"><LogoMark size={34} /><span>jwork</span></div>
           <div className="landing__bar-right">
-            <span className="landing__hello hand">{greeting()}{name ? `, ${name}` : ''}</span>
+            <span className="landing__hello">{greeting()}{name ? `, ${name}` : ''}</span>
             <span className={`landing__status is-${ollama.status}`}><i aria-hidden />{ollama.modelName} · {status}</span>
           </div>
         </header>
@@ -301,6 +320,8 @@ function LandingView({ reveal, onClose }: { reveal: boolean; onClose: () => void
             <form className="landing__chat landing__intro" data-exit onSubmit={submit}>
               <Sparkles size={20} aria-hidden />
               <input ref={input} value={prompt} onChange={e => setPrompt(e.target.value)} aria-label="Describe the list or total you need" placeholder="Describe the list or total you need" autoComplete="off" />
+              <button type="button" className="attach" onClick={files.pick} aria-label="Add a CSV or Excel file" title="Add a CSV or Excel file"><Paperclip size={19} aria-hidden /></button>
+              {files.input}
               <button type="submit" className="landing__send">Generate <ArrowRight size={18} aria-hidden /></button>
             </form>
             <div className="landing__tries landing__intro" data-exit>

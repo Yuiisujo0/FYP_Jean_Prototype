@@ -1,9 +1,7 @@
-import { BookOpen, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Settings, Sparkles, Workflow as WorkflowIcon, type LucideIcon } from 'lucide-react';
+import { BookOpen, LayoutDashboard, Settings, Sparkles, Workflow as WorkflowIcon, type LucideIcon } from 'lucide-react';
 import { useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { isMac } from '../components/CommandPalette';
 import { LogoMark } from '../components/Logo';
-import { IconButton } from '../components/ui/Button';
 import { useSlider } from '../components/ui/useSlider';
 import { Avatar } from '../components/Avatar';
 import { useWorkspace } from '../state/WorkspaceContext';
@@ -28,10 +26,9 @@ interface SidebarProps {
   phone: boolean;
   collapsed: boolean;
   onClose: () => void;
-  onToggle: () => void;
 }
 
-export function Sidebar({ open, phone, collapsed, onClose, onToggle }: SidebarProps) {
+export function Sidebar({ open, phone, collapsed, onClose }: SidebarProps) {
   const { flows, ollama, profile } = useWorkspace();
   const { pathname } = useLocation();
 
@@ -76,9 +73,6 @@ export function Sidebar({ open, phone, collapsed, onClose, onToggle }: SidebarPr
           <LogoMark size={30} />
           <span className="sidebar__wordmark">jwork</span>
         </Link>
-        <IconButton label={`${collapsed ? 'Expand' : 'Collapse'} sidebar (${isMac ? '⌘' : 'Ctrl'} B)`} className="sidebar__toggle" onClick={onToggle}>
-          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-        </IconButton>
       </div>
 
       <nav className="sidebar__nav" ref={navRef}>

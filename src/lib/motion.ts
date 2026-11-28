@@ -1,27 +1,40 @@
 import gsap from 'gsap';
+import { useEffect, useMemo, useState } from 'react';
 
-const EASE = 'expo.out';
+/** The one easing used for things that arrive: fast at first, then it settles. Matches `--ease` in tokens.css. */
+export const EASE = 'expo.out';
+
+/** True when the person asked their system for less motion. Movement is then skipped; colour and state changes stay. */
+export const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
- * The signature move: marker strokes wipe across the text they highlight.
- * Elements with class `mark` start empty (--wipe: 0%) and are painted left to right.
- * With reduced motion the marks are simply there.
+ * A number that counts up to `value` when `play` is true, and is simply `value` otherwise (or with reduced motion).
+ * Used for the row counts, so the totals are seen to be worked out and not just printed.
  */
-export function wipeMarks(scope: Element | null, { delay = 0.15, stagger = 0.09, duration = 0.7 } = {}) {
-  const mm = gsap.matchMedia();
-  const marks = scope?.querySelectorAll<HTMLElement>('.mark');
-  if (!marks?.length) return mm;
-  mm.add('(prefers-reduced-motion: no-preference)', () => {
-    gsap.fromTo(marks, { '--wipe': '0%' }, { '--wipe': '100%', duration, delay, stagger, ease: EASE, clearProps: '--wipe' });
-  });
-  return mm;
+export function useCountUp(value: number, play: boolean, duration = 0.8) {
+  const animate = play && !reducedMotion();
+  const [shown, setShown] = useState(animate ? 0 : value);
+  useEffect(() => {
+    if (!animate) { setShown(value); return; }
+    const counter = { n: 0 };
+    const tween = gsap.to(counter, { n: value, duration, ease: EASE, onUpdate: () => setShown(Math.round(counter.n)) });
+    return () => { tween.kill(); };
+  }, [value, animate, duration]);
+  return shown;
 }
 
-/** Lines settle in one after another. */
-export function settleIn(targets: gsap.TweenTarget, { delay = 0, stagger = 0.05 } = {}) {
-  const mm = gsap.matchMedia();
-  mm.add('(prefers-reduced-motion: no-preference)', () => {
-    gsap.from(targets, { y: 10, opacity: 0, duration: 0.55, delay, stagger, ease: EASE, clearProps: 'transform,opacity' });
-  });
-  return mm;
+/**
+ * Things that have already been shown once, so coming back to a screen does not replay its entrance. Keyed by the object
+ * itself (a run result, a flow), so it never grows: an entry goes when its object does.
+ */
+const shown = new WeakSet<object>();
+export const wasShown = (thing: object | null | undefined) => !thing || shown.has(thing);
+/** Call from an effect, not while rendering: React may render twice before anything is on screen. */
+export const markShown = (thing: object | null | undefined) => { if (thing) shown.add(thing); };
+
+/** `true` for the first screen that shows `thing`, and stays so while that screen is up; `false` on any later visit. */
+export function useFirstShow(thing: object | null | undefined) {
+  const first = useMemo(() => !wasShown(thing), [thing]);
+  useEffect(() => { markShown(thing); }, [thing]);
+  return first;
 }

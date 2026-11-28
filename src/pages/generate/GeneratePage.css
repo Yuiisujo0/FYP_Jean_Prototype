@@ -35,8 +35,15 @@
 .gen__error span { flex: 1; display: grid; }
 
 /* ---------- Stage tracker ---------- */
-.gen__stages { list-style: none; margin: 0; padding: 0.5rem 0; }
-.gen__stages li { display: flex; gap: 0.9rem; padding: 0.7rem 1.25rem; color: var(--text-3); }
+/* Every stage is listed from the start, joined by a line that fills as each one is finished. */
+.gen__stages { list-style: none; margin: 0; padding: 1.2rem 1.35rem; display: grid; border-radius: var(--r-md); animation: rise 0.35s var(--ease) both; }
+.gen__stages li { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 0.9rem; padding-bottom: 1.5rem; color: var(--text-3); transition: color 0.3s; }
+.gen__stages li:last-child { padding-bottom: 0; }
+.gen__stages li:not(:last-child)::before,
+.gen__stages li:not(:last-child)::after { content: ''; position: absolute; left: 13px; top: 32px; bottom: 4px; width: 2px; border-radius: 2px; }
+.gen__stages li::before { background: var(--border); }
+.gen__stages li::after { background: var(--accent); transform: scaleY(0); transform-origin: top; transition: transform 0.5s var(--ease); }
+.gen__stages li.is-done::after { transform: scaleY(1); }
 .gen__stages li b { font-weight: 600; }
 .gen__stages li.is-active { color: var(--text); }
 .gen__stages li.is-done { color: var(--text-2); }
@@ -44,15 +51,29 @@
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: 1.5px solid var(--border-strong);
-  font: 600 0.75rem var(--font-mono);
+  font: 650 0.8125rem/1 var(--font-display);
+  transition: background-color 0.3s, border-color 0.3s, color 0.3s;
 }
 .is-active .gen__marker { border-color: var(--accent); color: var(--accent-text); background: var(--accent-soft); }
 .is-done .gen__marker { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
-.gen__found { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; animation: rise 0.25s ease-out; }
+.is-done .gen__marker svg { animation: tick-in 0.4s var(--ease); }
+.gen__stage { display: grid; gap: 0.3rem; min-width: 0; padding-top: 2px; }
+.gen__time { font-weight: 500; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.gen__found { display: block; color: var(--text-2); font-size: 0.875rem; line-height: 1.5; animation: rise 0.3s var(--ease); }
+
+/* While it is building, a light runs along the bottom edge of the box the request was typed in. */
+.gen__card { position: relative; overflow: hidden; }
+.gen__card.is-busy::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent) no-repeat 0 0 / 40% 100%;
+  animation: gen-busy 1.5s ease-in-out infinite;
+}
+@keyframes gen-busy { from { background-position: -70% 0; } to { background-position: 170% 0; } }
+.gen__card.is-busy .gen__input { color: var(--text-2); }
 
 /* ---------- Examples ---------- */
 .gen__examples { display: grid; gap: 0.75rem; margin-top: 0.5rem; }
@@ -71,10 +92,13 @@
   background: var(--surface);
   text-align: left;
   color: var(--text-2);
-  transition: border-color 0.14s, color 0.14s, transform 0.14s;
+  transition: border-color 0.16s, color 0.16s, background-color 0.16s;
 }
-.gen__list button:hover { border-color: var(--accent); color: var(--text); transform: translateX(3px); }
-.gen__list button svg { flex-shrink: 0; color: var(--accent-text); }
+/* The row stays put; only its arrow moves, toward the box the words will go to. */
+.gen__list button:hover { border-color: var(--accent); color: var(--text); background: var(--surface-2); }
+.gen__list button svg { flex-shrink: 0; color: var(--accent-text); transition: translate 0.22s var(--ease); }
+.gen__list button:hover svg { translate: 4px 0; }
+.gen__list button:active { scale: 0.995; }
 
 /* ---------- Small talk reply and request history ---------- */
 .gen__chat { display: grid; gap: 0.6rem; animation: rise 0.25s ease-out; }
@@ -110,3 +134,11 @@
 .gen__nodata span { flex: 1 1 260px; color: var(--text); line-height: 1.5; }
 .gen__nodata b { color: var(--warn); }
 .gen__nodata-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+/* The paperclip leads the bar; the count sits beside it and the Build button keeps the right edge. */
+@media (min-width: 721px) {
+  .gen__bar .attach { margin-left: -0.55rem; }
+  .gen__bar input + .gen__count { margin-right: auto; margin-left: -0.5rem; }
+}
+/* Narrow: the bar is a column (see above); the paperclip sits on the left, the count stays centred under the button. */
+@media (max-width: 720px) { .gen__bar .attach { align-self: flex-start; } }

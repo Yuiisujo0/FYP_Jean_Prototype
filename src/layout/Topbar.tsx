@@ -1,7 +1,7 @@
-import { ChevronRight, Menu, Moon, Search, Sun } from 'lucide-react';
+import { ArrowLeft, Menu, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun } from 'lucide-react';
 import { Link, matchPath, useLocation } from 'react-router-dom';
 import { PROVIDER_SHORT } from '../lib/providerConfig';
-import { shortcutLabel } from '../components/CommandPalette';
+import { isMac, shortcutLabel } from '../components/CommandPalette';
 import { IconButton } from '../components/ui/Button';
 import { useDialogs } from '../state/DialogsContext';
 import { useWorkspace } from '../state/WorkspaceContext';
@@ -16,29 +16,35 @@ const TITLES: Record<string, string> = {
   '/profile': 'Profile',
 };
 
-export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
-  const { flows, ollama, toggleTheme } = useWorkspace();
+export function Topbar({ collapsed, onToggleSidebar }: { collapsed: boolean; onToggleSidebar: () => void }) {
+  const { ollama, toggleTheme } = useWorkspace();
   const { openPalette } = useDialogs();
   const { pathname } = useLocation();
 
+  // A workflow shows its own name in the bar under this one, so here it only needs the way back.
   const editor = matchPath('/editor/:id', pathname);
-  const crumbs = editor
-    ? ['Workflows', flows.find(f => f.id === editor.params.id)?.name ?? 'Editor']
-    : [TITLES[pathname] ?? 'Overview'];
 
   const statusLabel = { online: 'online', checking: 'checking…', offline: 'offline', unknown: 'unknown' }[ollama.status];
 
   return (
     <header className="topbar">
-      <IconButton label="Open navigation" className="topbar__menu" onClick={onOpenMenu}><Menu size={20} /></IconButton>
+      <IconButton label="Open navigation" className="topbar__menu" onClick={onToggleSidebar}><Menu size={20} /></IconButton>
+      {/* The sidebar's own switch lives here, at the same height whether the sidebar is open or closed. */}
+      <IconButton
+        label={`${collapsed ? 'Expand' : 'Collapse'} sidebar (${isMac ? '⌘' : 'Ctrl'} B)`}
+        className="topbar__toggle"
+        aria-expanded={!collapsed}
+        onClick={onToggleSidebar}
+      >
+        {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+      </IconButton>
 
       <nav className="crumbs" aria-label="Breadcrumb">
-        {crumbs.map((c, i) => (
-          <span className="crumbs__item" key={c + i} aria-current={i === crumbs.length - 1 ? 'page' : undefined}>
-            {i > 0 && <ChevronRight size={14} aria-hidden />}
-            {c}
-          </span>
-        ))}
+        {editor ? (
+          <Link to="/workflows" className="crumbs__back"><ArrowLeft size={17} aria-hidden /> Workflows</Link>
+        ) : (
+          <span className="crumbs__item" aria-current="page">{TITLES[pathname] ?? 'Overview'}</span>
+        )}
       </nav>
 
       <div className="topbar__actions">

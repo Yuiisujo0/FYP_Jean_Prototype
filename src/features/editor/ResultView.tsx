@@ -1,8 +1,9 @@
-import { AlertCircle, ArrowRight, Bot, CheckCircle2, Database, Download, Info, LoaderCircle, Play, RotateCcw, Send, Workflow } from 'lucide-react';
-import { useState } from 'react';
+import { AlertCircle, ArrowRight, Bot, Check, CheckCircle2, Database, Download, Info, LoaderCircle, Play, RotateCcw, Send, Workflow } from 'lucide-react';
+import { useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { explainStep } from '../../lib/explain';
+import { useFirstShow } from '../../lib/motion';
 import { errorCount } from '../../lib/validate';
 import { downloadCsv } from './CheckPanel';
 import { ApproveBox, NeedsYourEye, ReviewTotals } from './ReviewPanel';
@@ -15,10 +16,16 @@ const PREVIEW_ROWS = 5;
 const SAFE_TYPES = new Set(['INPUT', 'READ_CSV', 'FILTER', 'TRANSFORM', 'OUTPUT']);
 export const runsWithoutSideEffects = (editor: FlowEditor) => editor.ordered.length > 0 && editor.ordered.every(s => SAFE_TYPES.has(s.type));
 
-function Section({ no, title, note, children }: { no: number; title: string; note?: string; children: React.ReactNode }) {
+/** Where a section stands: `done` shows a tick, `todo` asks for a decision, `ready` can be acted on, `wait` is not open yet. */
+type SectionState = 'done' | 'todo' | 'ready' | 'wait';
+
+function Section({ no, title, note, state, lead, children }: { no: number; title: string; note?: string; state?: SectionState; lead?: boolean; children: React.ReactNode }) {
   return (
-    <section className="rv__sec">
-      <h2><span className="rv__no">{no}</span>{title}{note && <small>{note}</small>}</h2>
+    <section className={`rv__sec ${lead ? 'rv__sec--lead' : ''}`} data-state={state}>
+      <h2>
+        <span className="rv__no">{state === 'done' ? <Check size={14} strokeWidth={3} aria-label={`${no}, done`} /> : no}</span>
+        {title}{note && <small>{note}</small>}
+      </h2>
       {children}
     </section>
   );
@@ -89,6 +96,8 @@ function RunFailed({ editor, request, onShowSteps }: { editor: FlowEditor; reque
 function TheAnswer({ editor, request, onRun, onShowSteps }: { editor: FlowEditor; request: string; onRun: () => void; onShowSteps: () => void }) {
   const { result, running, runError, issues, preview, stale } = editor;
   const errors = errorCount(issues);
+  // The first time this result is on screen its rows settle in after the totals; later visits just show them.
+  const play = useFirstShow(result);
 
   if (running) return <p className="check__hint"><LoaderCircle size={15} className="spin" aria-hidden /> Running it on your data…</p>;
   if (editor.refining) return <p className="check__hint"><LoaderCircle size={15} className="spin" aria-hidden /> Asking the AI to change the steps…</p>;
@@ -100,12 +109,12 @@ function TheAnswer({ editor, request, onRun, onShowSteps }: { editor: FlowEditor
       <>
         <ReviewTotals editor={editor} />
         {result.columns.length > 0 && result.rows.length > 0 ? (
-          <div className="rv__table">
+          <div className={`rv__table ${play ? 'is-playing' : ''}`}>
             <table className="check__table">
               <thead><tr><th title="Row number in the source data">Row</th>{result.columns.map(c => <th key={c}>{c}</th>)}</tr></thead>
               <tbody>
                 {result.rows.slice(0, RESULT_ROWS).map((r, i) => (
-                  <tr key={i}><td>{result.lineage[i]?.join(', ') ?? i + 1}</td>{result.columns.map(c => <td key={c}>{r[c]}</td>)}</tr>
+                  <tr key={i} style={{ '--i': Math.min(i, 10) } as CSSProperties}><td>{result.lineage[i]?.join(', ') ?? i + 1}</td>{result.columns.map(c => <td key={c}>{r[c]}</td>)}</tr>
                 ))}
               </tbody>
             </table>
@@ -175,15 +184,20 @@ interface Props {
 export function ResultView({ editor, request, onRun, onShowSteps, onFocusNode, onRefine, notice, blocked }: Props) {
   const { result, gate, ordered, checks } = editor;
   const toReview = result ? result.exceptions.length + editor.assumptions.length : 0;
+  // What is still waiting for a decision. The sections' markers follow it, so what is left to do can be seen at a glance.
+  const open = gate ? gate.openCritical.length + gate.unconfirmed.length : 0;
+  const signOff = !!(result && gate && !blocked);
+  const answered = !!result && !editor.runError && !blocked;
 
   return (
     <div className="rv">
-      <div className="rv__inner">
+      <div className={`rv__inner ${signOff ? 'has-side' : ''}`}>
         {request && (
           <p className="rv__request"><span>You asked</span>“{request}”</p>
         )}
 
-        <Section no={1} title="The answer">
+        <div className="rv__main">
+        <Section no={1} title="The answer" lead state={answered ? 'done' : undefined}>
           {notice}
           {!blocked && <TheAnswer editor={editor} request={request} onRun={onRun} onShowSteps={onShowSteps} />}
         </Section>
@@ -204,16 +218,17 @@ export function ResultView({ editor, request, onRun, onShowSteps, onFocusNode, o
           <ChangeBox busy={editor.refining} onSubmit={onRefine} />
           <button type="button" className="rv__link" onClick={onShowSteps}>See how it was done, step by step <ArrowRight size={14} aria-hidden /></button>
         </Section>
+        </div>
 
-        {result && gate && !blocked && (
-          <>
-            <Section no={3} title="What needs your eye" note={toReview ? undefined : 'nothing to decide'}>
+        {result && gate && signOff && (
+          <aside className="rv__side" aria-label="Review and approve">
+            <Section no={3} title="What needs your eye" state={open ? 'todo' : 'done'} note={!toReview ? 'nothing to decide' : open ? `${open} to decide` : 'all decided'}>
               <NeedsYourEye editor={editor} onFocusNode={onFocusNode} />
             </Section>
-            <Section no={4} title="Approve and send">
+            <Section no={4} title="Approve and send" state={editor.approvalForResult ? 'done' : gate.canApprove ? 'ready' : 'wait'}>
               <ApproveBox editor={editor} />
             </Section>
-          </>
+          </aside>
         )}
       </div>
     </div>

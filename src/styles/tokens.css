@@ -1,13 +1,12 @@
 /* Design tokens. Every colour, size and shadow in the app comes from here.
    The look follows the landing cover (design-previews/S-orbit.html): a pale teal ground, white soft cards, teal accent,
-   pill controls, Familjen Grotesk for text and Caveat for the odd handwritten note. */
+   pill controls, Familjen Grotesk for all text. */
 
 :root {
   color-scheme: light;
 
   --font-sans: 'Familjen Grotesk Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Familjen Grotesk Variable', system-ui, sans-serif;
-  --font-hand: 'Caveat Variable', 'Segoe Print', cursive;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, Consolas, monospace;
 
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -40,6 +39,13 @@
   --warn-soft: #fbefd8;
   --danger: #b42318;
   --danger-soft: #fce8e5;
+
+  /* Where a source row ended up: in the result, left out by the steps, or flagged for a person. Used by the row ledger. */
+  --row-kept: var(--accent);
+  --row-out: #a9c2bc;
+  --row-flag: #dd8f2c;
+  /* The tick drawn inside a ticked box (the colour of text on the accent). */
+  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23ffffff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 6.4l2.4 2.4 4.6-5.2'/%3E%3C/svg%3E");
 
   /* Navigation rail (light, like the landing page's rail) */
   --side-bg: #eaf3f1;
@@ -109,6 +115,10 @@
   --warn-soft: #33250f;
   --danger: #ff8b7e;
   --danger-soft: #3a1815;
+
+  --row-out: #3a5a6c;
+  --row-flag: #f0a24b;
+  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%2304201c' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 6.4l2.4 2.4 4.6-5.2'/%3E%3C/svg%3E");
 
   --side-bg: #040e18;
   --side-border: #12293a;

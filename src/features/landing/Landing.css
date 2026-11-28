@@ -19,29 +19,49 @@ html.cover-on #root { position: fixed; inset: 0; overflow: hidden; }
   font-family: var(--font-sans);
   outline: none;
 }
+/* Where the iris is and how far it is open. Landing.tsx sets these every frame while the page is scrolled, on the three
+   elements that use them. They are registered so that they are not handed down to children: changing one then restyles only
+   that element, not everything inside the cover. */
+@property --iris-x { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --iris-y { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --iris-r { syntax: '<length>'; inherits: false; initial-value: 0px; }
+
 /* The iris: once it opens, the cover has a growing hole that shows the app underneath. */
 .landing.is-iris {
-  -webkit-mask-image: radial-gradient(circle at var(--cx) var(--cy), transparent var(--r), #000 calc(var(--r) + 1px));
-  mask-image: radial-gradient(circle at var(--cx) var(--cy), transparent var(--r), #000 calc(var(--r) + 1px));
+  -webkit-mask-image: radial-gradient(circle at var(--iris-x) var(--iris-y), transparent var(--iris-r), #000 calc(var(--iris-r) + 1px));
+  mask-image: radial-gradient(circle at var(--iris-x) var(--iris-y), transparent var(--iris-r), #000 calc(var(--iris-r) + 1px));
 }
+/* The bright edge of the iris. It is a gradient on a sheet the size of the screen, so growing it is one cheap fill. (It used to
+   be a circle that changed size every frame with two large blurred shadows, which the browser had to paint again each time.) */
 .landing__ring {
   position: fixed;
+  inset: 0;
   z-index: 101;
   pointer-events: none;
-  border-radius: 50%;
-  border: 2px solid rgb(205 255 249 / 0.95);
-  box-shadow: 0 0 44px 6px rgb(95 227 214 / 0.6), inset 0 0 44px 6px rgb(95 227 214 / 0.35);
-  translate: -50% -50%;
   opacity: 0;
+  background: radial-gradient(circle at var(--iris-x) var(--iris-y),
+    transparent calc(var(--iris-r) - 44px),
+    rgb(95 227 214 / 0.07) calc(var(--iris-r) - 24px),
+    rgb(95 227 214 / 0.2) calc(var(--iris-r) - 7px),
+    rgb(205 255 249 / 0.95) calc(var(--iris-r) - 1px),
+    rgb(205 255 249 / 0.95) calc(var(--iris-r) + 1px),
+    rgb(95 227 214 / 0.4) calc(var(--iris-r) + 7px),
+    rgb(95 227 214 / 0.13) calc(var(--iris-r) + 26px),
+    transparent calc(var(--iris-r) + 50px));
 }
-.landing__flash { position: fixed; inset: 0; z-index: 101; pointer-events: none; opacity: 0; }
+.landing__flash {
+  position: fixed; inset: 0; z-index: 101; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at var(--iris-x) var(--iris-y), rgb(235 255 252 / 0.95), rgb(95 227 214 / 0.4) 34%, transparent 66%);
+}
 
 /* slow light fields and grain */
 .landing__aurora { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.landing__aurora i { position: absolute; border-radius: 50%; filter: blur(60px); will-change: transform; }
-.landing__aurora i:nth-child(1) { width: 72vw; height: 72vw; left: 38%; top: -26%; background: radial-gradient(circle, rgb(20 200 255 / 0.5), transparent 66%); animation: landing-a 42s ease-in-out infinite alternate; }
-.landing__aurora i:nth-child(2) { width: 62vw; height: 62vw; left: -18%; top: 44%; background: radial-gradient(circle, rgb(30 90 255 / 0.5), transparent 66%); animation: landing-b 54s ease-in-out infinite alternate; }
-.landing__aurora i:nth-child(3) { width: 54vw; height: 54vw; right: -12%; bottom: -30%; background: radial-gradient(circle, rgb(70 235 225 / 0.42), transparent 66%); animation: landing-c 48s ease-in-out infinite alternate; }
+/* Each field is a gradient that already fades to nothing at its edge, so it needs no blur on top (three screen-sized blurs,
+   recomputed as they drift, were a steady cost for no visible gain). The stops are spread to keep the same soft falloff. */
+.landing__aurora i { position: absolute; border-radius: 50%; will-change: transform; }
+.landing__aurora i:nth-child(1) { width: 72vw; height: 72vw; left: 38%; top: -26%; background: radial-gradient(circle, rgb(20 200 255 / 0.46), rgb(20 200 255 / 0.3) 26%, rgb(20 200 255 / 0.1) 52%, transparent 72%); animation: landing-a 42s ease-in-out infinite alternate; }
+.landing__aurora i:nth-child(2) { width: 62vw; height: 62vw; left: -18%; top: 44%; background: radial-gradient(circle, rgb(30 90 255 / 0.46), rgb(30 90 255 / 0.3) 26%, rgb(30 90 255 / 0.1) 52%, transparent 72%); animation: landing-b 54s ease-in-out infinite alternate; }
+.landing__aurora i:nth-child(3) { width: 54vw; height: 54vw; right: -12%; bottom: -30%; background: radial-gradient(circle, rgb(70 235 225 / 0.39), rgb(70 235 225 / 0.25) 26%, rgb(70 235 225 / 0.09) 52%, transparent 72%); animation: landing-c 48s ease-in-out infinite alternate; }
 @keyframes landing-a { to { transform: translate3d(-10vw, 9vh, 0) scale(1.12); } }
 @keyframes landing-b { to { transform: translate3d(12vw, -10vh, 0) scale(1.1); } }
 @keyframes landing-c { to { transform: translate3d(-9vw, -8vh, 0) scale(1.15); } }
@@ -55,14 +75,21 @@ html.cover-on #root { position: fixed; inset: 0; overflow: hidden; }
 .landing__bloom { position: absolute; inset: 0; width: 100%; height: 100%; }
 .landing__bloom { filter: blur(12px); mix-blend-mode: screen; }
 .landing__bloom--orb { filter: blur(16px); opacity: 0.9; }
+/* Where the canvas can blur its own drawing (backdrop.ts), the glow arrives already blurred. */
+.landing.has-canvas-blur .landing__bloom { filter: none; }
 .landing__vignette { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: radial-gradient(120% 100% at 70% 48%, transparent 45%, rgb(1 8 14 / 0.6) 100%), linear-gradient(90deg, rgb(1 8 18 / 0.72) 0%, rgb(1 8 18 / 0.4) 34%, transparent 52%), linear-gradient(180deg, rgb(1 8 18 / 0.4) 0%, transparent 16%, transparent 84%, rgb(1 8 18 / 0.5) 100%); }
+
+/* The parts that leave as the page is scrolled are on their own layers from the start, so the first scrolled frame does not
+   have to make them. */
+.landing [data-exit] { will-change: transform, opacity; }
+.landing__wi { will-change: transform; }
 
 /* top bar */
 .landing__bar, .landing__mid, .landing__bot { position: relative; z-index: 3; }
 .landing__bar { display: flex; align-items: center; justify-content: space-between; padding: 24px clamp(24px, 6vw, 96px) 0; }
 .landing__brand { display: flex; align-items: center; gap: 12px; font: 700 1.5rem var(--font-display); letter-spacing: -0.045em; }
 .landing__bar-right { display: flex; align-items: center; gap: 14px; color: #a9c4d6; font-size: 0.875rem; }
-.landing__hello { font-size: 1.4rem; line-height: 1; }
+.landing__hello { font-size: 0.9375rem; font-weight: 560; color: #d5e4ee; }
 .landing__status { display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px; border-radius: 999px; background: rgb(255 255 255 / 0.08); white-space: nowrap; }
 .landing__status i { width: 9px; height: 9px; border-radius: 50%; background: #e0a43a; box-shadow: 0 0 0 4px rgb(224 164 58 / 0.2); }
 .landing__status.is-online i { background: #4fe0a0; box-shadow: 0 0 0 4px rgb(79 224 160 / 0.2); }
@@ -141,3 +168,9 @@ html.cover-on #root { position: fixed; inset: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .landing__aurora i, .landing__cue svg { animation: none; }
 }
+
+/* The paperclip sits on the light prompt pill, so it takes the pill's colours rather than the app's tokens. */
+.landing__chat .attach { color: #557479; }
+.landing__chat .attach:hover { background: rgb(31 138 133 / 0.12); color: #1f8a85; }
+.landing .filedrop { border-color: #5fe3d6; background: rgb(7 30 48 / 0.82); color: #eef8fb; }
+.landing .filedrop small { color: #a9c4d6; }

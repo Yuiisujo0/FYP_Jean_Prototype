@@ -13,6 +13,8 @@ export interface Scene {
   warp: number;
   hidden: boolean;
   core: { x: number; y: number };
+  /** How far the iris is open, in pixels from `core`. Nothing inside that circle can be seen, so nothing inside it is drawn. */
+  hole: number;
 }
 
 export interface BackdropOptions {
@@ -30,6 +32,25 @@ type Vec3 = [number, number, number];
 type Proj = [number, number, number, number];
 
 const TAU = Math.PI * 2;
+/**
+ * How sharply the canvases are drawn. Two full-screen canvases are redrawn every frame and the cost goes with the number of
+ * pixels, so a canvas is never sharper than 1.5 and never more than about 2.3 million pixels (a 1920 by 1080 screen at 1 is
+ * 2.1 million). On a large, dense screen the scene is drawn a little softer, which glowing dots hide well.
+ */
+const MAX_DPR = 1.5, PIXEL_BUDGET = 2.3e6;
+const canvasDpr = (w: number, h: number) => Math.max(1, Math.min(window.devicePixelRatio || 1, MAX_DPR, Math.sqrt(PIXEL_BUDGET / Math.max(1, w * h))));
+/**
+ * Can a canvas blur what it draws? Where it can, each glow is blurred while it is still small (a third of the screen each
+ * way), which costs about a ninth of blurring the full-size layer with CSS. Where it cannot (older Safari), CSS does it.
+ */
+const CANVAS_BLUR = typeof CanvasRenderingContext2D !== 'undefined' && 'filter' in CanvasRenderingContext2D.prototype;
+/** Draws `from` into the small glow canvas, blurred. `px` is the blur as seen on screen; the glow canvas is a third of that size. */
+function glowFrom(from: HTMLCanvasElement, to: CanvasRenderingContext2D, w: number, h: number, px: number) {
+  to.clearRect(0, 0, w, h);
+  if (CANVAS_BLUR) to.filter = `blur(${px / 3}px)`;
+  to.drawImage(from, 0, 0, w, h);
+  if (CANVAS_BLUR) to.filter = 'none';
+}
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const ri = (a: number, b: number) => a + Math.floor(Math.random() * (b - a + 1));
 const sstep = (a: number, b: number, x: number) => {
@@ -53,6 +74,8 @@ function sprite(size: number, stops: [number, string][]) {
 interface WNode {
   x: number; y: number; z: number; c: number; s: number; ph: number; n: number[];
   sx: number; sy: number; pz: number; vis: boolean; near: number; a: number;
+  /** Distance from the iris's centre on screen (only kept up to date while the iris is open). */
+  d: number;
 }
 interface Packet { a: number; b: number; u: number; hops: number }
 
@@ -70,16 +93,29 @@ function makeWeb(o: BackdropOptions) {
     g.fillRect(0, 0, 64, 64);
     return k;
   });
+  // A far neuron is a soft dot with a white-hot point in its middle. The point is part of the picture here, so a far neuron is
+  // one draw and not two (there are over a thousand of them).
+  const tintCore = tint.map(soft => {
+    const k = document.createElement('canvas');
+    k.width = k.height = 64;
+    const g = k.getContext('2d')!;
+    g.drawImage(soft, 0, 0);
+    g.globalCompositeOperation = 'lighter';
+    const r = g.createRadialGradient(32, 32, 0, 32, 32, 6.5);
+    r.addColorStop(0, 'rgba(235,250,255,1)'); r.addColorStop(0.55, 'rgba(235,250,255,.85)'); r.addColorStop(1, 'rgba(235,250,255,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+    return k;
+  });
 
   let W = 0, H = 0, dpr = 1, bw = 0, bh = 0, F = 600, XM = 2, YM = 1.7;
   let nodes: WNode[] = [], links: [number, number][] = [], packets: Packet[] = [], sorted: WNode[] = [];
-  let t = calm ? 30000 : 0, mx = 0, my = 0, cx = 0, cy = 0, spawnT = 0;
+  let t = calm ? 30000 : 0, mx = 0, my = 0, cx = 0, cy = 0, spawnT = 0, frame = 0;
   const target = { cx: 0, cy: 0, mx: 0, my: 0, havePointer: false };
 
   function build() {
     nodes = []; links = []; packets = [];
     const n = Math.round(Math.min(1500, Math.max(220, (W * H) / 1000)));
-    for (let i = 0; i < n; i++) nodes.push({ x: rnd(-XM, XM), y: rnd(-YM, YM), z: rnd(0.7, 3.8), c: ri(0, 3), s: rnd(0.7, 1.4), ph: rnd(0, TAU), n: [], sx: 0, sy: 0, pz: 0, vis: false, near: 0, a: 0 });
+    for (let i = 0; i < n; i++) nodes.push({ x: rnd(-XM, XM), y: rnd(-YM, YM), z: rnd(0.7, 3.8), c: ri(0, 3), s: rnd(0.7, 1.4), ph: rnd(0, TAU), n: [], sx: 0, sy: 0, pz: 0, vis: false, near: 0, a: 0, d: 0 });
     for (let i = 0; i < n; i++) {
       const a = nodes[i], near: [number, number][] = [];
       for (let j = 0; j < n; j++) {
@@ -94,8 +130,8 @@ function makeWeb(o: BackdropOptions) {
   }
 
   function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 1.75);
     W = cv.clientWidth; H = cv.clientHeight;
+    dpr = canvasDpr(W, H);
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     bw = Math.round(W / 3); bh = Math.round(H / 3); bl.width = bw; bl.height = bh;
     F = H * 0.62; YM = ((H / 2) * 1.12 * 1.9) / F; XM = (YM * W) / H;
@@ -114,7 +150,7 @@ function makeWeb(o: BackdropOptions) {
     if (scene.hidden && !calm) return;
     t += dt; mx += (target.mx - mx) * 0.03; my += (target.my - my) * 0.03; cx += (target.cx - cx) * 0.08; cy += (target.cy - cy) * 0.08;
     scene.core.x = cx; scene.core.y = cy;
-    const pull = scene.pull, boost = scene.boost, warp = scene.warp, wide = W > 1000;
+    const pull = scene.pull, boost = scene.boost, warp = scene.warp, wide = W > 1000, hole = Math.max(0, scene.hole - 6);
     const dolly = boost * 1.55 + warp * 1.1, ke = 1 - pull * 0.96;
     spawnT += dt; if (spawnT > 850) { spawnT = 0; addPacket(); }
     const yaw = Math.sin(t * 0.00011) * 0.1 + mx * 0.07 + boost * 0.35, cyw = Math.cos(yaw), syw = Math.sin(yaw), ZC = 2.3;
@@ -126,6 +162,7 @@ function makeWeb(o: BackdropOptions) {
       let sx = W / 2 + ((xr + mx * 0.12) * F) / z, sy = H / 2 + ((n.y + my * 0.09) * F) / z;
       if (pull > 0) { sx = cx + (sx - cx) * ke; sy = cy + (sy - cy) * ke; }
       n.sx = sx; n.sy = sy; n.vis = true;
+      if (hole > 0) n.d = Math.hypot(sx - cx, sy - cy);
       const near = Math.max(0, Math.min(1, (3.6 - z) / 3)), wave = 0.55 + 0.45 * Math.sin(n.x * 1.25 + n.y * 0.6 + n.z * 0.9 - t * 0.00042);
       n.near = near;
       n.a = (0.3 + 0.8 * near) * (0.5 + 0.5 * wave) * Math.min(1, (z - 0.12) * 3) * (wide ? 0.3 + 0.7 * sstep(W * 0.08, W * 0.55, sx) : 1);
@@ -139,6 +176,7 @@ function makeWeb(o: BackdropOptions) {
         for (const [i, j] of links) {
           const a = nodes[i], b = nodes[j];
           if (!a.vis || !b.vis) continue;
+          if (hole > 0 && a.d < hole && b.d < hole) continue;   // both ends are inside the iris, so the whole line is
           const nr = (a.near + b.near) / 2;
           if (nr < lo || nr >= hi) continue;
           const w = (a.a + b.a) / 2 > 0.3;
@@ -150,17 +188,16 @@ function makeWeb(o: BackdropOptions) {
     }
     sorted.sort((p, q) => q.pz - p.pz);
     for (const n of sorted) {
-      if (!n.vis) continue;
-      const c = tint[n.c], f = n.near;
+      if (!n.vis || n.a < 0.012) continue;   // too faint to see: not worth a draw
+      const f = n.near;
       if (f > 0.55) {
         const r = (12 + (40 * (f - 0.55)) / 0.45) * n.s * (3 / n.pz) ** 0.3;
-        ctx.globalAlpha = n.a * 0.3; ctx.drawImage(c, n.sx - r, n.sy - r, r * 2, r * 2);
+        if (hole > 0 && n.d + r < hole) continue;   // wholly inside the iris: it cannot be seen
+        ctx.globalAlpha = n.a * 0.3; ctx.drawImage(tint[n.c], n.sx - r, n.sy - r, r * 2, r * 2);
       } else {
         const r = (3.4 + 12 * f) * n.s;
-        ctx.globalAlpha = Math.min(1, n.a * 0.85); ctx.drawImage(c, n.sx - r, n.sy - r, r * 2, r * 2);
-        ctx.globalAlpha = Math.min(1, n.a * 0.95);
-        const d = 1 + 2.2 * f;
-        ctx.fillStyle = 'rgb(235,250,255)'; ctx.fillRect(n.sx - d / 2, n.sy - d / 2, d, d);
+        if (hole > 0 && n.d + r < hole) continue;
+        ctx.globalAlpha = Math.min(1, n.a * 0.85); ctx.drawImage(tintCore[n.c], n.sx - r, n.sy - r, r * 2, r * 2);
       }
     }
     ctx.globalAlpha = 1;
@@ -186,7 +223,8 @@ function makeWeb(o: BackdropOptions) {
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
     }
     ctx.globalCompositeOperation = 'source-over';
-    bctx.clearRect(0, 0, bw, bh); bctx.drawImage(cv, 0, 0, bw, bh);
+    // The glow is soft and slow, so it is refreshed every other frame (the globe's glow takes the frames in between).
+    if (calm || (frame++ & 1) === 0) glowFrom(cv, bctx, bw, bh, 12);
   }
 
   const onMove = (e: PointerEvent) => {
@@ -225,6 +263,17 @@ function makeOrb(o: BackdropOptions) {
     p.land = land(Math.asin(y), Math.atan2(p.z, p.x));
     pts.push(p); if (p.land) lands.push(p);
   }
+  // Every dot and grid line has its own brightness (how far round the globe it is). Giving each its own colour meant thousands of
+  // colour changes a frame, which was the slowest thing on the cover. They are sorted into a few brightness levels instead, and a
+  // level is drawn with one colour. Sea dots take levels 0 to LEVELS-1, land dots the next LEVELS.
+  const LEVELS = 10, LINE_LEVELS = 6, MAX_SEGS = 24 * 30 + 5 * 80;
+  const DOT_STYLE = Array.from({ length: LEVELS * 2 }, (_, b) => {
+    const f = (b % LEVELS) / (LEVELS - 1);
+    return b < LEVELS ? `rgba(120,185,255,${(0.09 + 0.3 * f).toFixed(3)})` : `rgba(150,245,235,${(0.3 + 0.7 * f).toFixed(3)})`;
+  });
+  const LINE_STYLE = Array.from({ length: LINE_LEVELS }, (_, b) => `rgba(130,225,255,${(0.07 + 0.3 * (b / (LINE_LEVELS - 1))).toFixed(3)})`);
+  const dotX = new Float32Array(NP), dotY = new Float32Array(NP), dotS = new Float32Array(NP), dotLevel = new Int8Array(NP);
+  const seg = new Float32Array(MAX_SEGS * 4), segLevel = new Int8Array(MAX_SEGS);
   const MER: Vec3[][] = [], PAR: Vec3[][] = [], D2R = Math.PI / 180;
   for (let m = 0; m < 24; m++) { const lo = (m / 24) * TAU, line: Vec3[] = []; for (let a = -90; a <= 90; a += 6) { const la = a * D2R; line.push([Math.cos(la) * Math.cos(lo), Math.sin(la), Math.cos(la) * Math.sin(lo)]); } MER.push(line); }
   for (let a = -60; a <= 60; a += 30) { const la = a * D2R, line: Vec3[] = []; for (let k = 0; k <= 80; k++) { const lo = (k / 80) * TAU; line.push([Math.cos(la) * Math.cos(lo), Math.sin(la), Math.cos(la) * Math.sin(lo)]); } PAR.push(line); }
@@ -245,13 +294,13 @@ function makeOrb(o: BackdropOptions) {
   let yaw0 = 0;
   { let best = -1; for (let k = 0; k < 72; k++) { const y = (k / 72) * TAU, c = Math.cos(y), s = Math.sin(y); let n = 0; for (const p of lands) { const z1 = -p.x * s + p.z * c; if (p.y * Math.sin(0.3) + z1 * Math.cos(0.3) > 0.15) n++; } if (n > best) { best = n; yaw0 = y; } } }
 
-  let W = 0, H = 0, dpr = 1, bw = 0, bh = 0, R = 300, bx = 0, by = 0, t = calm ? 8000 : 0, mx = 0, my = 0, spin = 0, dragYaw = 0, vel = 0, near = 0;
+  let W = 0, H = 0, dpr = 1, bw = 0, bh = 0, R = 300, bx = 0, by = 0, t = calm ? 8000 : 0, mx = 0, my = 0, spin = 0, dragYaw = 0, vel = 0, near = 0, frame = 0, blank = false;
   const target = { mx: 0, my: 0 };
   const drag = { on: false, lastX: 0, lastT: 0 };
 
   function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 1.75);
     W = cv.clientWidth; H = cv.clientHeight;
+    dpr = canvasDpr(W, H);
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); bw = Math.round(W / 3); bh = Math.round(H / 3); bl.width = bw; bl.height = bh;
     const wide = W > 1000;
     R = wide ? Math.min(H * 0.36, W * 0.21) : W * 0.46; bx = wide ? W * 0.745 : W * 0.5; by = wide ? H * 0.52 : H * 0.76;
@@ -266,6 +315,13 @@ function makeOrb(o: BackdropOptions) {
     const pull = scene.pull, boost = scene.boost, core = scene.core;
     const Rr = R * (1 + 0.012 * Math.sin(t * 0.0007) + near * 0.025 + boost * 0.18) * (1 - pull * 0.94) * (0.84 + 0.16 * (1 - Math.exp(-t / 500)));
     const ox = bx + mx * W * 0.008 + (core.x - bx) * pull, oy = by + my * H * 0.01 + (core.y - by) * pull;
+    // Once the iris has opened past the globe, its rings and its halo, none of it can be seen: the canvas is wiped once and
+    // left alone. (2.5 radii covers the widest ring and the chips on it.)
+    if (!calm && scene.hole > 0 && Math.hypot(ox - core.x, oy - core.y) + Rr * 2.5 + 30 < scene.hole) {
+      if (!blank) { blank = true; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); bctx.clearRect(0, 0, bw, bh); }
+      return;
+    }
+    blank = false;
     const yaw = yaw0 + spin + dragYaw + mx * 0.35 + 2.6 * Math.exp(-t / 650), pit = 0.3 + my * 0.22, cyw = Math.cos(yaw), syw = Math.sin(yaw), cp = Math.cos(pit), sp = Math.sin(pit);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
     const G = (v: Vec3): Proj => { const x1 = v[0] * cyw + v[2] * syw, z1 = -v[0] * syw + v[2] * cyw, y2 = v[1] * cp - z1 * sp, z2 = v[1] * sp + z1 * cp, sc = 1 / (1 + -z2 * 0.1); return [ox + x1 * Rr * sc, oy + y2 * Rr * sc, z2, sc]; };
@@ -302,20 +358,38 @@ function makeOrb(o: BackdropOptions) {
     g = ctx.createRadialGradient(ox, oy, Rr * 0.94, ox, oy, Rr * 1.06);
     g.addColorStop(0, 'rgba(120,230,255,0)'); g.addColorStop(0.5, 'rgba(140,235,255,.5)'); g.addColorStop(1, 'rgba(120,230,255,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(ox, oy, Rr * 1.06, 0, TAU); ctx.fill();
+    // The grid lines: placed first, then drawn one brightness level at a time.
     ctx.lineWidth = 1;
+    let segs = 0;
     for (const set of [MER, PAR]) for (const line of set) {
       let prev = G(line[0]);
       for (let k = 1; k < line.length; k++) {
         const cur = G(line[k]), z = (prev[2] + cur[2]) / 2;
-        if (z > -0.05) { ctx.strokeStyle = `rgba(130,225,255,${0.07 + 0.3 * Math.max(0, z)})`; ctx.beginPath(); ctx.moveTo(prev[0], prev[1]); ctx.lineTo(cur[0], cur[1]); ctx.stroke(); }
+        if (z > -0.05) {
+          const at = segs * 4;
+          seg[at] = prev[0]; seg[at + 1] = prev[1]; seg[at + 2] = cur[0]; seg[at + 3] = cur[1];
+          segLevel[segs++] = Math.round(Math.max(0, z) * (LINE_LEVELS - 1));
+        }
         prev = cur;
       }
     }
+    for (let b = 0; b < LINE_LEVELS; b++) {
+      ctx.beginPath();
+      for (let k = 0; k < segs; k++) if (segLevel[k] === b) { const at = k * 4; ctx.moveTo(seg[at], seg[at + 1]); ctx.lineTo(seg[at + 2], seg[at + 3]); }
+      ctx.strokeStyle = LINE_STYLE[b]; ctx.stroke();
+    }
+    // The dots, the same way. (The same turning as G above, written out so that no array is made per dot.)
+    const sizeK = Rr / 330 + 0.35;
     for (let i = 0; i < NP; i++) {
-      const p = pts[i], q = G([p.x, p.y, p.z]), z = q[2];
-      if (z < -0.08) continue;
-      const f = Math.max(0, z), a = p.land ? 0.3 + 0.7 * f : 0.09 + 0.3 * f, s = (p.land ? 2.5 : 1.1) * p.s * q[3] * (Rr / 330 + 0.35);
-      ctx.fillStyle = p.land ? `rgba(150,245,235,${a})` : `rgba(120,185,255,${a})`; ctx.fillRect(q[0] - s / 2, q[1] - s / 2, s, s);
+      const p = pts[i], x1 = p.x * cyw + p.z * syw, z1 = -p.x * syw + p.z * cyw, z2 = p.y * sp + z1 * cp;
+      if (z2 < -0.08) { dotLevel[i] = -1; continue; }
+      const sc = 1 / (1 - z2 * 0.1), s = (p.land ? 2.5 : 1.1) * p.s * sc * sizeK;
+      dotLevel[i] = (p.land ? LEVELS : 0) + Math.round(Math.max(0, z2) * (LEVELS - 1));
+      dotX[i] = ox + x1 * Rr * sc - s / 2; dotY[i] = oy + (p.y * cp - z1 * sp) * Rr * sc - s / 2; dotS[i] = s;
+    }
+    for (let b = 0; b < LEVELS * 2; b++) {
+      ctx.fillStyle = DOT_STYLE[b];
+      for (let i = 0; i < NP; i++) if (dotLevel[i] === b) ctx.fillRect(dotX[i], dotY[i], dotS[i], dotS[i]);
     }
     for (const A of arcs) {
       if (!A.a || !A.b || A.u > 1.3) { A.a = pick(); A.b = pick(); A.u = -rnd(0, 0.4); }
@@ -336,7 +410,7 @@ function makeOrb(o: BackdropOptions) {
     }
     RINGS.forEach(rg => drawRing(rg, true));
     ctx.globalCompositeOperation = 'source-over'; placed.filter(p => p[1][2] >= 0).forEach(p => chip(p[0], p[1]));
-    bctx.clearRect(0, 0, bw, bh); bctx.drawImage(cv, 0, 0, bw, bh);
+    if (calm || (frame++ & 1) === 1) glowFrom(cv, bctx, bw, bh, 16);
   }
 
   const onMove = (e: PointerEvent) => {
@@ -369,6 +443,7 @@ export function createBackdrop(o: BackdropOptions) {
   const stop = () => { cancelAnimationFrame(raf); raf = 0; };
   const onVisibility = () => (document.hidden ? stop() : start());
   const onMove = (e: PointerEvent) => { web.onMove(e); orb.onMove(e); };
+  o.host.classList.toggle('has-canvas-blur', CANVAS_BLUR);
   const ro = new ResizeObserver(resize);
   ro.observe(o.host);
   window.addEventListener('pointermove', onMove, { passive: true });

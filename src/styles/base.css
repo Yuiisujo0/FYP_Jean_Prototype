@@ -63,12 +63,6 @@ button {
   cursor: pointer;
 }
 
-.hand {
-  font-family: var(--font-hand);
-  font-weight: 600;
-  letter-spacing: 0;
-}
-
 button:disabled {
   cursor: not-allowed;
 }
@@ -82,6 +76,13 @@ button:disabled {
 
 a {
   color: inherit;
+  text-underline-offset: 3px;
+}
+
+/* The text cursor is the brand colour wherever someone types. */
+input,
+textarea {
+  caret-color: var(--accent);
 }
 
 ::selection {
@@ -129,6 +130,11 @@ kbd {
 
 @keyframes pulse {
   50% { opacity: 0.45; }
+}
+
+/* A tick arriving where a number or a spinner was: a step is done. */
+@keyframes tick-in {
+  from { opacity: 0; scale: 0.4; }
 }
 
 .spin {

@@ -11,11 +11,15 @@
   backdrop-filter: blur(12px);
 }
 .topbar__menu { display: none; }
+/* Pulled towards the page edge and the title, so it reads as part of the title and not as a fourth control. */
+.topbar__toggle { margin: 0 -0.45rem 0 -0.6rem; color: var(--text-3); }
 
 .crumbs { display: flex; align-items: center; min-width: 0; font: 700 1.05rem var(--font-display); letter-spacing: -0.02em; }
-.crumbs__item { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-3); white-space: nowrap; }
-.crumbs__item:last-child { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
-.crumbs__item:not(:first-child) { margin-left: 0.4rem; }
+.crumbs__item { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crumbs__back { display: inline-flex; align-items: center; gap: 0.45rem; margin-left: -0.3rem; padding: 0.3rem 0.6rem 0.3rem 0.4rem; border-radius: 999px; color: var(--text-2); text-decoration: none; white-space: nowrap; transition: background-color 0.16s, color 0.16s; }
+.crumbs__back svg { transition: translate 0.2s var(--ease); }
+.crumbs__back:hover { background: var(--sunken); color: var(--text); }
+.crumbs__back:hover svg { translate: -2px 0; }
 
 .topbar__actions { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
 
@@ -66,6 +70,7 @@
 
 @media (max-width: 768px) {
   .topbar__menu { display: grid; }
+  .topbar__toggle { display: none; }
 }
 @media (max-width: 720px) {
   .topbar__search { width: 44px; padding: 0; justify-content: center; }
@@ -73,6 +78,4 @@
   .topbar__search kbd { display: none; }
   .topbar__status span { display: none; }
   .topbar__status { padding: 0 0.7rem; }
-  .crumbs__item:not(:last-child) { display: none; }
-  .crumbs__item:not(:first-child) { margin-left: 0; }
 }

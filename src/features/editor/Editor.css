@@ -12,9 +12,18 @@
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
-.etool__back { display: inline-flex; align-items: center; gap: 0.45rem; color: var(--text-2); font-size: 0.875rem; font-weight: 560; text-decoration: none; }
-.etool__back:hover { color: var(--accent-text); }
-.etool__sep { height: 22px; border-left: 1px solid var(--border); }
+/* The bar gives way by its own width (not the window's: the sidebar may be open or closed), so Run is always in reach:
+   first the name gets shorter, then "Saved" goes, then the labels beside the icons. */
+.etool { container-type: inline-size; min-width: 0; }
+.etool > * { flex-shrink: 0; }
+.etool > .etool__name { flex: 0 1 280px; width: auto; min-width: 96px; }
+.etool > .etool__spacer { flex: 1 1 0; min-width: 0; }
+@container (max-width: 1150px) {
+  .etool__saved { display: none; }
+}
+@container (max-width: 930px) {
+  .etool__label { display: none; }
+}
 .etool__name {
   width: min(280px, 30vw);
   height: 36px;
@@ -47,24 +56,23 @@
 .etool__valid.is-danger { background: var(--danger-soft); color: var(--danger); }
 
 /* ---------- Canvas ---------- */
-.editor__canvas { position: relative; flex: 1; min-width: 0; background: var(--canvas-bg); }
+/* The canvas is a named container, so what floats over it (the help) can size itself by the canvas and not by the window. */
+.editor__canvas { position: relative; flex: 1; min-width: 0; background: var(--canvas-bg); user-select: none; container: canvas / inline-size; }
 .editor__canvas .react-flow {
   --xy-background-color: transparent;
   --xy-edge-stroke: var(--edge);
   --xy-edge-stroke-selected: var(--accent);
   --xy-edge-stroke-width: 2px;
   --xy-connectionline-stroke: var(--accent);
-  --xy-controls-button-background-color: var(--surface);
-  --xy-controls-button-background-color-hover: var(--sunken);
-  --xy-controls-button-color: var(--text-2);
-  --xy-controls-button-border-color: var(--border);
+  --xy-selection-background-color: color-mix(in srgb, var(--accent) 9%, transparent);
+  --xy-selection-border: 1.5px solid var(--accent);
   --xy-minimap-background-color: var(--surface);
   --xy-minimap-mask-background-color: color-mix(in srgb, var(--canvas-bg) 72%, transparent);
   --xy-minimap-node-background-color: var(--c-output);
   font-family: var(--font-sans);
 }
-.react-flow__controls { box-shadow: var(--shadow-2) !important; border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
-.react-flow__controls-button svg { fill: currentColor; }
+.editor__canvas .react-flow__selection,
+.editor__canvas .react-flow__nodesselection-rect { border-radius: 10px; }
 .react-flow__minimap { border: 1px solid var(--border); border-radius: var(--r-sm); box-shadow: var(--shadow-2); overflow: hidden; }
 .react-flow__edge.is-done .react-flow__edge-path { stroke: var(--ok); }
 .react-flow__edge.animated .react-flow__edge-path { stroke: var(--accent); stroke-width: 2.5px; }
@@ -78,20 +86,68 @@
 .editor__canvas .react-flow__node.dragging,
 .lib__item:active { cursor: var(--cursor-grabbing) 16 16, grabbing; }
 .editor__canvas .react-flow__node .react-flow__handle { cursor: crosshair; }
-.editor__canvas .react-flow__controls-button { cursor: pointer; }
+/* With "Select" on, dragging the background draws a box, so the pointer says so. */
+.editor__canvas.is-select .react-flow__pane:not(.dragging) { cursor: crosshair; }
 
-.editor__chips { display: flex; gap: 0.4rem; }
-.editor__chips span {
-  padding: 0.25rem 0.7rem;
-  border: 1px solid var(--border);
+/* ---------- Canvas controls: one bar, bottom centre ---------- */
+.dock { position: relative; display: grid; justify-items: center; cursor: default; }
+.dock__bar { display: flex; align-items: center; gap: 2px; padding: 5px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border), var(--shadow-2); }
+.dock__btn {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
   border-radius: 999px;
-  background: var(--surface);
+  background: transparent;
   color: var(--text-2);
-  font-size: 0.8125rem;
-  font-weight: 560;
-  box-shadow: var(--shadow-1);
+  transition-property: background-color, color, scale;
+  transition-duration: 0.16s;
 }
-.editor__chips .is-ok { background: var(--ok-soft); border-color: transparent; color: var(--ok); }
+.dock__btn:hover { background: var(--sunken); color: var(--text); }
+.dock__btn:active { scale: 0.94; }
+.dock__btn:focus-visible { border-radius: 999px; }
+.dock__btn[aria-pressed='true'] { background: var(--accent-soft); color: var(--accent-text); }
+.dock__btn--text { display: inline-flex; align-items: center; gap: 0.4rem; width: auto; padding: 0 0.9rem 0 0.7rem; font-size: 0.8125rem; font-weight: 620; }
+.dock__btn--text[aria-expanded='true'] { background: var(--sunken); color: var(--text); }
+.dock__sep { width: 1px; height: 20px; margin: 0 4px; background: var(--border); }
+
+/* The help opens upwards out of the bar. It closes faster than it opens. */
+.dock__help {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  /* As wide as the canvas allows (the tools panel beside it can be dragged wider), and never taller than the canvas. */
+  width: min(720px, 100cqi - 2rem);
+  max-height: calc(100dvh - var(--topbar-h) - 170px);
+  overflow-y: auto;
+  padding: 1rem 1.15rem 1.05rem;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border), var(--shadow-3);
+  transform-origin: bottom center;
+  translate: -50% 8px;
+  scale: 0.98;
+  opacity: 0;
+  transition: opacity 0.14s, translate 0.14s, scale 0.14s;
+}
+.dock__help.is-open { translate: -50% 0; scale: 1; opacity: 1; transition: opacity 0.18s, translate 0.26s var(--ease), scale 0.26s var(--ease); }
+.dock__help header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.7rem; }
+.dock__help h3 { font-size: 1rem; }
+.dock__close { display: grid; place-items: center; width: 28px; height: 28px; margin: -4px -6px -4px 0; border: 0; border-radius: 999px; background: transparent; color: var(--text-3); transition: background-color 0.16s, color 0.16s; }
+.dock__close:hover { background: var(--sunken); color: var(--text); }
+.dock__help p { margin: 0.85rem 0 0; padding-top: 0.75rem; border-top: 1px solid var(--border); font-size: 0.8125rem; line-height: 1.45; color: var(--text-3); }
+.dock__help p b { font-weight: 650; color: var(--text-2); }
+
+/* More than one step selected: what is selected and the one thing a group is for. */
+.selbar { display: flex; align-items: center; gap: 0.25rem; padding: 5px 5px 5px 1rem; border-radius: 999px; background: var(--text); color: var(--surface); font-size: 0.8125rem; font-weight: 620; font-variant-numeric: tabular-nums; box-shadow: var(--shadow-2); cursor: default; animation: rise 0.22s var(--ease) both; }
+.selbar > span { margin-right: 0.5rem; }
+.selbar button { display: inline-flex; align-items: center; gap: 0.4rem; height: 30px; padding: 0 0.75rem; border: 0; border-radius: 999px; background: transparent; color: inherit; font: inherit; transition: background-color 0.16s, scale 0.16s; }
+.selbar button:hover { background: color-mix(in srgb, var(--surface) 18%, transparent); }
+.selbar button:active { scale: 0.95; }
+.selbar .selbar__delete { background: color-mix(in srgb, var(--surface) 12%, transparent); }
+.selbar .selbar__delete:hover { background: var(--danger); color: #fff; }
+.selbar .selbar__clear { width: 30px; padding: 0; justify-content: center; }
 
 .editor__empty {
   position: absolute;
@@ -109,56 +165,80 @@
 .editor__empty .btn { margin-top: 0.5rem; }
 
 /* ---------- Nodes ---------- */
+/* A step is a soft card in the app's own shape. Its colour sits in the icon only; the line round it says what state it is in. */
 .fnode {
+  --ring: var(--border);
   position: relative;
   width: 224px;
-  padding: 0.8rem 0.9rem 0.75rem;
-  border: 1.5px solid var(--border);
-  border-radius: 12px;
+  padding: 0.8rem 0.95rem 0.9rem;
+  border-radius: var(--r-md);
   background: var(--surface);
-  box-shadow: var(--shadow-2);
-  transition: border-color 0.14s, box-shadow 0.14s;
+  box-shadow: inset 0 0 0 1px var(--ring), var(--shadow-1);
+  transition: box-shadow 0.18s;
 }
-.fnode::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 4px;
-  border-radius: 10px 10px 0 0;
-  background: var(--cat);
-}
-.fnode:hover { border-color: var(--border-strong); }
-.fnode.is-selected { border-color: var(--cat); box-shadow: 0 0 0 4px color-mix(in srgb, var(--cat) 20%, transparent), var(--shadow-2); }
-.fnode[data-state='running'] { border-color: var(--accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 22%, transparent), var(--shadow-2); }
-.fnode[data-state='complete'] { border-color: var(--ok); }
-.fnode[data-state='error'] { border-color: var(--danger); }
+.fnode:hover { --ring: var(--border-strong); box-shadow: inset 0 0 0 1px var(--ring), var(--shadow-2); }
+.fnode[data-state='complete'] { --ring: color-mix(in srgb, var(--ok) 55%, var(--border)); }
+.fnode[data-state='error'] { --ring: var(--danger); box-shadow: inset 0 0 0 1.5px var(--ring), var(--shadow-1); }
+.fnode.is-selected { box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 5px color-mix(in srgb, var(--accent) 16%, transparent), var(--shadow-2); }
+.fnode[data-state='running'] { box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 6px color-mix(in srgb, var(--accent) 20%, transparent), var(--shadow-2); }
+/* A step that was just added settles into place. */
+.react-flow__node.is-new .fnode { animation: node-in 0.45s var(--ease) both; }
+@keyframes node-in { from { opacity: 0; scale: 0.9; translate: 0 10px; } }
 
-.fnode__head { display: flex; align-items: center; gap: 0.5rem; margin: 0.15rem 0 0.6rem; }
-.fnode__icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--cat-soft); color: var(--cat); }
-.fnode__kind { flex: 1; font: 600 0.6875rem var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.fnode__head { display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.6rem; }
+.fnode__icon { display: grid; place-items: center; flex-shrink: 0; width: 30px; height: 30px; border-radius: 10px; background: var(--cat-soft); color: var(--cat); }
+.fnode__kind { flex: 1; min-width: 0; font-size: 0.75rem; font-weight: 600; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fnode__state { display: grid; color: var(--text-3); }
 .fnode[data-state='running'] .fnode__state { color: var(--accent); }
 .fnode[data-state='complete'] .fnode__state { color: var(--ok); }
 .fnode[data-state='error'] .fnode__state { color: var(--danger); }
 .fnode__title { font-weight: 650; font-size: 0.9375rem; line-height: 1.3; }
-.fnode__desc { margin-top: 0.2rem; color: var(--text-3); font-size: 0.8125rem; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.35em; }
-.fnode__foot { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.65rem; padding-top: 0.6rem; border-top: 1px dashed var(--border); min-height: 2.1rem; align-items: center; }
-.fnode__foot code { max-width: 100%; padding: 0.1rem 0.45rem; border-radius: 6px; background: var(--sunken); color: var(--text-2); font: 500 0.6875rem var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fnode__run { font-size: 0.75rem; font-weight: 560; color: var(--text-2); }
+.fnode__desc { margin-top: 0.2rem; color: var(--text-3); font-size: 0.8125rem; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.9em; }
+/* The foot is the step's part of the row count: a bar for the share of the flow's rows that leave it, and the count in words. */
+.fnode__foot { display: grid; gap: 0.4rem; margin-top: 0.75rem; }
+.fnode__meter { display: block; height: 4px; border-radius: 4px; background: var(--sunken); overflow: hidden; }
+.fnode__meter i { display: block; height: 100%; border-radius: inherit; background: var(--row-kept); transition: width 0.5s var(--ease); }
+.fnode__rows,
+.fnode__run { font-size: 0.75rem; font-weight: 600; line-height: 1.35; font-variant-numeric: tabular-nums; color: var(--text-2); }
 .fnode[data-state='complete'] .fnode__run { color: var(--ok); }
 .fnode[data-state='error'] .fnode__run { color: var(--danger); }
+.fnode[data-state='error'] .fnode__meter i { background: var(--danger); }
 
+/* The dots that steps are joined by sit level with the step's heading, so a row of steps is joined by one straight line
+   however tall each card is. */
 .fnode .react-flow__handle {
-  width: 12px;
-  height: 12px;
-  border: 2.5px solid var(--cat);
+  top: 28px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--edge);
   border-radius: 50%;
   background: var(--surface);
-  transition: transform 0.12s;
+  transition-property: scale, border-color, background-color;
+  transition-duration: 0.14s;
 }
-.fnode .react-flow__handle:hover { transform: scale(1.35); background: var(--cat); }
-.fnode .react-flow__handle-left { left: -7px; }
-.fnode .react-flow__handle-right { right: -7px; }
+.fnode .react-flow__handle:hover,
+.fnode .react-flow__handle.connectingto { scale: 1.45; border-color: var(--accent); background: var(--accent); }
+/* The left one is a numbered stop on the line, which fills in as the run reaches it. */
+.fnode .react-flow__handle.fnode__stop {
+  display: grid;
+  place-items: center;
+  left: -5px;
+  width: 24px;
+  height: 24px;
+  border-width: 1.5px;
+  color: var(--text-2);
+  font: 650 0.6875rem/1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  transition-property: scale, border-color, background-color, color;
+  transition-duration: 0.2s;
+}
+.fnode .react-flow__handle.fnode__stop:hover,
+.fnode .react-flow__handle.fnode__stop.connectingto { scale: 1.15; background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.fnode.is-selected .fnode__stop { border-color: var(--accent); color: var(--accent-text); }
+.fnode[data-state='waiting'] .fnode__stop { border-style: dashed; }
+.fnode[data-state='running'] .fnode__stop { border-color: var(--accent); background: var(--accent); color: var(--surface); }
+.fnode[data-state='complete'] .fnode__stop { border-color: var(--ok); background: var(--ok); color: var(--surface); }
+.fnode[data-state='error'] .fnode__stop { border-color: var(--danger); background: var(--danger); color: var(--surface); }
 
 /* ---------- Side panel ---------- */
 /* The system resize cursor is white with a thin outline and disappears on the light panel, so this one is dark with a white outline. */
@@ -206,22 +286,29 @@ body:has(.editor__resize.is-dragging) * { cursor: var(--resize-cursor) !importan
 .panel__note svg { flex-shrink: 0; margin-top: 2px; color: var(--ok); }
 
 /* Library */
-.lib { display: grid; gap: 0.5rem; }
+/* Three short groups of plain rows. A row only lights up, and shows its plus, when it is pointed at. */
+.lib { display: grid; gap: 2px; margin: 0 -0.5rem; }
+.lib__group { padding: 0 0.5rem 0.3rem; font: 650 0.8125rem var(--font-sans); color: var(--text-3); }
 .lib__item {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  padding: 0.6rem 0.7rem 0.6rem 0.4rem;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--surface);
+  gap: 0.7rem;
+  padding: 0.45rem 0.6rem 0.45rem 0.5rem;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
   text-align: left;
   color: var(--text-3);
-  transition: border-color 0.14s, box-shadow 0.14s, transform 0.14s;
+  transition: background-color 0.14s;
 }
-.lib__item:hover { border-color: var(--cat); box-shadow: var(--shadow-1); transform: translateX(2px); }
-.lib__grip { color: var(--border-strong); flex-shrink: 0; }
-.lib__icon { display: grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: 9px; background: var(--cat-soft); color: var(--cat); }
+.lib__item:hover,
+.lib__item:focus-visible { background: var(--sunken); }
+.lib__icon { display: grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px; background: var(--cat-soft); color: var(--cat); transition: scale 0.2s var(--ease); }
+.lib__item:hover .lib__icon { scale: 1.06; }
+.lib__plus { flex-shrink: 0; color: var(--text-2); opacity: 0; translate: -4px 0; transition: opacity 0.14s, translate 0.2s var(--ease); }
+.lib__item:hover .lib__plus,
+.lib__item:focus-visible .lib__plus { opacity: 1; translate: 0; }
+@media (hover: none) { .lib__plus { opacity: 1; translate: 0; } }
 .lib__text { display: grid; flex: 1; min-width: 0; line-height: 1.3; }
 .lib__text b { color: var(--text); font-size: 0.875rem; }
 .lib__text small { font-size: 0.75rem; }
@@ -267,7 +354,6 @@ body:has(.editor__resize.is-dragging) * { cursor: var(--resize-cursor) !importan
   width: 100%;
   padding: 0.65rem 0.8rem;
   border: 1px solid var(--border);
-  border-left-width: 3px;
   border-radius: var(--r-sm);
   background: var(--surface);
   text-align: left;
@@ -276,8 +362,10 @@ body:has(.editor__resize.is-dragging) * { cursor: var(--resize-cursor) !importan
 }
 .check__item:not(:disabled):hover { background: var(--surface-2); }
 .check__item:disabled { cursor: default; }
-.check__item.is-error { border-left-color: var(--danger); }
-.check__item.is-warning { border-left-color: var(--warn); }
+.check__item .check__level { display: inline-flex; align-items: center; gap: 0.4rem; }
+.check__item .check__level::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.check__item.is-error { border-color: color-mix(in srgb, var(--danger) 30%, var(--border)); }
+.check__item.is-warning { border-color: color-mix(in srgb, var(--warn) 30%, var(--border)); }
 .check__level { font: 650 0.6875rem var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; }
 .is-error .check__level { color: var(--danger); }
 .is-warning .check__level { color: var(--warn); }
@@ -329,12 +417,12 @@ body:has(.editor__resize.is-dragging) * { cursor: var(--resize-cursor) !importan
   .etool .segmented button { flex: 1; justify-content: center; }
   .etool__saved,
   .etool__label,
-  .etool__sep,
-  .etool__valid-label,
-  .etool__back span { display: none; }
+  .etool__valid-label { display: none; }
   .etool__valid { padding: 0 0.55rem; }
   .etool__name { width: auto; flex: 1; min-width: 80px; }
   .react-flow__minimap { display: none; }
+  /* The canvas is short here, so the help scrolls inside itself and never runs under the bar above. */
+  .dock__help { max-height: calc(56vh - 100px); overflow-y: auto; }
 }
 
 .insp__hint { display: block; margin-top: 0.35rem; font-size: 0.75rem; color: var(--warn, var(--text-3)); line-height: 1.4; }
@@ -380,7 +468,6 @@ body:has(.editor__resize.is-dragging) * { cursor: var(--resize-cursor) !importan
 .check__explain { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; font-size: 0.8125rem; color: var(--text); line-height: 1.45; }
 .check__hint { margin: 0; display: flex; align-items: center; gap: 0.4rem; font-size: 0.8125rem; color: var(--text-2); line-height: 1.45; }
 .check__count { margin: 0; font-size: 0.875rem; }
-.fnode__desc { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
 .ask__reply { align-items: flex-start; }
 .ask__reply span { line-height: 1.45; }
@@ -391,39 +478,113 @@ body:has(.editor__resize.is-dragging) * { cursor: var(--resize-cursor) !importan
 .review { gap: 0.7rem; }
 .review__stale, .review__preview-note { color: var(--warn); }
 .review__stale { display: flex; gap: 0.4rem; align-items: center; margin: 0; font-size: 0.8125rem; }
-.review__totals { margin: 0; padding: 0.6rem 0.75rem; border-radius: var(--r-sm); font-size: 0.8125rem; line-height: 1.5; background: var(--sunken); }
-.review__totals.is-ok { border-left: 3px solid var(--ok); }
-.review__totals.is-bad { border-left: 3px solid var(--danger); color: var(--danger); }
-.review__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
-.review__ex { display: grid; gap: 0.3rem; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-left-width: 3px; border-radius: var(--r-sm); font-size: 0.8125rem; line-height: 1.45; }
+
+/* The row ledger: one bar for every row read, split into where each ended up, and the same in words under it. */
+.review__sum { display: grid; gap: 0.8rem; }
+.ledger { display: grid; gap: 0.8rem; }
+.ledger__track { height: 14px; border-radius: 999px; background: var(--sunken); overflow: hidden; }
+.ledger__bar { display: flex; gap: 2px; height: 100%; }
+.ledger__seg { flex-basis: 0; min-width: 6px; transition: opacity 0.2s; }
+.ledger__seg.is-kept { background: var(--row-kept); }
+.ledger__seg.is-out { background: var(--row-out); }
+.ledger__seg.is-flag { background: var(--row-flag); }
+.ledger__key { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.6rem 2.25rem; }
+.ledger__part { display: grid; gap: 0.2rem; cursor: default; }
+.ledger__part b { font: 700 1.75rem/1 var(--font-display); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.ledger__part.is-none b { color: var(--text-3); font-weight: 600; }
+.ledger__part span { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-2); font-size: 0.8125rem; }
+.ledger__part i { width: 9px; height: 9px; border-radius: 3px; }
+.ledger__part.is-kept i { background: var(--row-kept); }
+.ledger__part.is-out i { background: var(--row-out); }
+.ledger__part.is-flag i { background: var(--row-flag); }
+/* Pointing at a count picks its part of the bar out. */
+.ledger:has(.ledger__part.is-kept:hover) .ledger__seg:not(.is-kept),
+.ledger:has(.ledger__part.is-out:hover) .ledger__seg:not(.is-out),
+.ledger:has(.ledger__part.is-flag:hover) .ledger__seg:not(.is-flag) { opacity: 0.25; }
+.editor__panel .ledger__part b { font-size: 1.35rem; }
+.editor__panel .ledger__key { gap: 0.5rem 1.4rem; }
+
+.review__totals { display: flex; align-items: flex-start; gap: 0.5rem; margin: 0; color: var(--text-2); font-size: 0.8125rem; line-height: 1.5; }
+.review__totals svg { flex-shrink: 0; margin-top: 2px; }
+.review__totals b { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
+.review__totals.is-ok svg { color: var(--ok); }
+.review__totals.is-bad { padding: 0.6rem 0.75rem; border-radius: var(--r-sm); background: var(--danger-soft); color: var(--danger); }
+.review__totals.is-bad b { color: inherit; }
+
+/* The first time a result is shown: the bar is swept in as if the rows were being gone through, then the words settle. */
+.review__sum.is-playing .ledger__bar { animation: ledger-sweep 1.1s var(--ease) both; }
+.review__sum.is-playing .review__totals { animation: rise 0.5s var(--ease) 0.5s both; }
+@keyframes ledger-sweep { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+.review__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.review__ex {
+  display: grid; gap: 0.35rem; padding: 0.75rem 0.85rem;
+  border-radius: var(--r-sm); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--border);
+  font-size: 0.8125rem; line-height: 1.45;
+  transition: background-color 0.3s, box-shadow 0.3s;
+}
 .review__ex p { margin: 0; }
-.review__ex.is-critical { border-left-color: var(--danger); }
+.review__ex .check__level { display: inline-flex; align-items: center; gap: 0.4rem; transition: color 0.3s; }
+.review__ex .check__level::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.review__ex.is-critical { background: color-mix(in srgb, var(--danger-soft) 60%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 24%, transparent); }
 .review__ex.is-critical .check__level { color: var(--danger); }
-.review__ex.is-warning { border-left-color: var(--warn); }
+.review__ex.is-warning { background: color-mix(in srgb, var(--warn-soft) 60%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 24%, transparent); }
 .review__ex.is-warning .check__level { color: var(--warn); }
-.review__ex.is-resolved { border-left-color: var(--ok); }
+.review__ex.is-resolved { background: color-mix(in srgb, var(--ok-soft) 60%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 24%, transparent); }
 .review__ex.is-resolved .check__level { color: var(--ok); }
 .review__ex-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
 .review__step { border: 0; background: none; padding: 0; font: inherit; font-size: 0.75rem; color: var(--text-3); text-decoration: underline; cursor: pointer; }
+.review__step:hover { color: var(--accent-text); }
 .review__rows { color: var(--text-3); font-family: var(--font-mono); font-size: 0.75rem; }
-.review__accept { display: grid; gap: 0.4rem; }
-.review__accept textarea { resize: vertical; font-size: 0.8125rem; }
-.review__accepted { color: var(--text-2); }
+.review__accept { display: grid; gap: 0.4rem; justify-items: start; animation: rise 0.25s var(--ease); }
+.review__accept textarea { resize: vertical; padding: 0.6rem 0.8rem; border-radius: var(--r-sm); font-size: 0.8125rem; line-height: 1.45; }
+.review__accepted { color: var(--text-2); animation: rise 0.25s var(--ease); }
 .review__undo { display: inline-flex; align-items: center; gap: 0.2rem; margin-left: 0.4rem; border: 0; background: none; padding: 0; font: inherit; color: var(--text-3); text-decoration: underline; cursor: pointer; }
+.review__undo:hover { color: var(--text); }
+
 .review__assume { display: grid; gap: 0.4rem; }
 .review__label { margin: 0; font-size: 0.8125rem; font-weight: 600; }
-.review__check { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.8125rem; line-height: 1.45; cursor: pointer; }
-.review__check input { margin-top: 0.2rem; flex-shrink: 0; }
-.review__approval { display: flex; gap: 0.5rem; margin: 0; padding: 0.6rem 0.75rem; border-radius: var(--r-sm); font-size: 0.8125rem; line-height: 1.45; }
-.review__approval svg { flex-shrink: 0; margin-top: 2px; }
+.review__check {
+  display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.75rem;
+  border-radius: var(--r-sm); box-shadow: inset 0 0 0 1px var(--border);
+  font-size: 0.8125rem; line-height: 1.45; cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+.review__check:hover { background: var(--surface-2); }
+.review__check:has(input:checked) { background: color-mix(in srgb, var(--ok-soft) 60%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 24%, transparent); }
+/* A tick that is drawn in when the box is ticked. */
+.review__check input {
+  appearance: none; flex-shrink: 0; width: 18px; height: 18px; margin: 0.08rem 0 0;
+  border: 1.5px solid var(--border-strong); border-radius: 6px; cursor: pointer;
+  background: var(--surface) center / 0 no-repeat var(--tick);
+  transition: background-color 0.16s, border-color 0.16s, background-size 0.24s var(--ease);
+}
+.review__check input:checked { border-color: var(--accent); background-color: var(--accent); background-size: 12px; }
+.review__check input:active { scale: 0.92; }
+
+.review__approval { display: flex; gap: 0.6rem; margin: 0; padding: 0.75rem 0.9rem; border-radius: var(--r-sm); font-size: 0.8125rem; line-height: 1.45; }
+.review__approval svg { flex-shrink: 0; margin-top: 1px; }
 .review__approval.is-ok { background: var(--ok-soft); color: var(--ok); }
 .review__approval.is-old { background: var(--warn-soft); color: var(--warn); }
-.review__gate { display: grid; gap: 0.5rem; }
-.review__blockers { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; font-size: 0.8125rem; color: var(--text-2); }
-.review__blockers li { display: flex; gap: 0.4rem; align-items: baseline; }
+/* Approved just now, on this screen: the note is drawn across and its seal is pressed on. */
+.review__approval.is-stamped { animation: approval-in 0.55s var(--ease) both; }
+.review__approval.is-stamped svg { animation: approval-seal 0.6s var(--ease) 0.08s both; }
+@keyframes approval-in { from { clip-path: inset(0 100% 0 0 round var(--r-sm)); } to { clip-path: inset(0 0 0 0 round var(--r-sm)); } }
+@keyframes approval-seal { from { opacity: 0; transform: scale(2.4) rotate(-16deg); } 55% { opacity: 1; } to { transform: none; } }
+
+.review__gate { display: grid; gap: 0.6rem; }
+.review__blockers { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; font-size: 0.8125rem; color: var(--text-2); }
+.review__blockers li { display: flex; gap: 0.45rem; align-items: baseline; animation: rise 0.25s var(--ease); }
+.review__blockers svg { flex-shrink: 0; color: var(--warn); translate: 0 2px; }
 .review__approve { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.review__approve .input { flex: 1; min-width: 8rem; }
+.review__approve .input { flex: 1; min-width: 8rem; min-height: 34px; }
 .review__approve--email .input { flex-basis: 100%; }
+/* The last decision was made: the button that has just become usable says so, once. */
+.review__approve.is-unlocked .btn--primary { animation: approve-ready 1.1s ease-out 0.1s 1; }
+@keyframes approve-ready {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); }
+  to { box-shadow: 0 0 0 14px transparent; }
+}
 .check__agent { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.45rem; font-size: 0.8125rem; line-height: 1.45; }
 .check__agent li { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.45rem; }
 .check__agent li > svg { margin-top: 3px; color: var(--accent); }
@@ -433,37 +594,226 @@ body:has(.editor__resize.is-dragging) * { cursor: var(--resize-cursor) !importan
 
 
 /* ---------- Result view: the answer first, the canvas one click away ---------- */
-.rv { flex: 1; min-height: 0; overflow-y: auto; background: var(--bg); }
-.rv__inner { display: grid; gap: 1.25rem; width: min(960px, 100%); margin: 0 auto; padding: 1.75rem 1.25rem 3rem; }
-.rv__request { display: grid; gap: 0.25rem; margin: 0; font: 600 1.25rem/1.4 var(--font-display); letter-spacing: -0.01em; }
-.rv__request span { font: 650 0.75rem var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
-.rv__sec { display: grid; gap: 0.75rem; padding: 1.1rem 1.25rem 1.25rem; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
-.rv__sec h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; font-size: 1.05rem; }
-.rv__sec h2 small { font-size: 0.8125rem; font-weight: 500; color: var(--text-3); }
-.rv__no { display: inline-grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); font: 650 0.75rem var(--font-mono); transform: translateY(-1px); }
+/* Wide enough, it is two columns: the answer and how it was reached on the left, what is left to decide and the approval on
+   the right, so the answer and the sign-off are seen together. Narrow, it is one column in the order 1 to 4. */
+.rv { flex: 1; min-height: 0; overflow-y: auto; background: var(--bg); container-type: inline-size; }
+.rv__inner { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 1.5rem 1.75rem; width: min(860px, 100%); margin: 0 auto; padding: 2rem 1.5rem 3.5rem; animation: rise 0.32s var(--ease) both; }
+.rv__inner.has-side { width: min(1200px, 100%); }
+.rv__main, .rv__side { display: grid; gap: 1.25rem; min-width: 0; }
+@container (min-width: 1040px) {
+  .rv__inner.has-side { grid-template-columns: minmax(0, 1fr) 372px; }
+  .rv__inner.has-side .rv__request { grid-column: 1 / -1; }
+}
+
+.rv__request { display: grid; gap: 0.35rem; max-width: 46ch; margin: 0; font: 650 clamp(1.35rem, 1rem + 1.4cqi, 1.8rem)/1.22 var(--font-display); letter-spacing: -0.022em; text-wrap: balance; }
+.rv__request span { font: 600 0.875rem/1.3 var(--font-sans); letter-spacing: 0; color: var(--accent-text); }
+
+.rv__sec { display: grid; gap: 0.85rem; min-width: 0; padding: 1.15rem 1.25rem 1.3rem; border-radius: var(--r-md); background: var(--surface); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 75%, transparent); transition: box-shadow 0.35s; }
+.rv__sec h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.6rem; font-size: 1.05rem; }
+.rv__sec h2 small { font-size: 0.8125rem; font-weight: 500; letter-spacing: 0; color: var(--text-3); transition: color 0.3s; }
+/* The answer is the screen's subject: larger, lifted off the page. The steps under it are supporting detail. */
+.rv__sec--lead { gap: 1.1rem; padding: 1.4rem 1.5rem 1.5rem; border-radius: var(--r-lg); box-shadow: var(--shadow-2); }
+.rv__sec--lead h2 { font-size: 1.35rem; }
+.rv__main .rv__sec:not(.rv__sec--lead) { background: transparent; box-shadow: inset 0 0 0 1px var(--border); }
+
+/* A section's marker says where it stands: a tick when it is settled, amber while it waits for a decision. */
+.rv__no { display: inline-grid; place-items: center; flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); font: 700 0.8125rem/1 var(--font-display); font-variant-numeric: tabular-nums; transition: background-color 0.35s, color 0.35s; }
+.rv__no svg { animation: tick-in 0.4s var(--ease); }
+.rv__sec[data-state='done'] .rv__no { background: var(--ok); color: var(--surface); }
+.rv__sec[data-state='todo'] .rv__no { background: var(--warn); color: var(--surface); }
+.rv__sec[data-state='ready'] .rv__no { background: var(--accent); color: var(--on-accent); }
+.rv__sec[data-state='wait'] .rv__no { background: var(--sunken); color: var(--text-3); }
+.rv__sec[data-state='todo'] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 38%, transparent); }
+.rv__sec[data-state='todo'] h2 small { color: var(--warn); font-weight: 650; }
+.rv__sec[data-state='ready'] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), var(--shadow-1); }
+
 .rv__table { max-height: 460px; overflow: auto; border: 1px solid var(--border); border-radius: var(--r-sm); }
-.rv__table .check__table th { position: sticky; top: 0; background: var(--surface); }
-.rv__table > .check__hint { padding: 0.5rem; }
+.rv__table .check__table { font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.rv__table .check__table th { position: sticky; top: 0; z-index: 1; padding: 0.6rem 0.75rem; border-bottom: 0; background: var(--surface-2); box-shadow: inset 0 -1px 0 var(--border); }
+.rv__table .check__table td { padding: 0.6rem 0.75rem; }
+.rv__table tbody tr { transition: background-color 0.12s; }
+.rv__table tbody tr:hover { background: var(--surface-2); }
+.rv__table tbody tr:last-child td { border-bottom: 0; }
+.rv__table > .check__hint { padding: 0.5rem 0.75rem; }
+/* The rows settle in after the totals, the first time only. */
+.rv__table.is-playing tbody tr { animation: row-in 0.45s var(--ease) both; animation-delay: calc(var(--i, 0) * 35ms + 380ms); }
+@keyframes row-in { from { opacity: 0; transform: translateY(6px); } }
+
+/* A button on its own in a section keeps its own width; a hint's icon keeps its size beside two lines of text. */
+.rv__sec > .btn { justify-self: start; }
+.rv__sec .check__hint { align-items: flex-start; }
+.rv__sec .check__hint > svg { flex-shrink: 0; margin-top: 3px; }
 .rv__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .rv__problem { display: flex; gap: 0.7rem; padding: 0.9rem 1rem; border-radius: var(--r-sm); background: var(--danger-soft); color: var(--danger); }
 .rv__problem svg { flex-shrink: 0; margin-top: 2px; }
 .rv__problem div { display: grid; gap: 0.4rem; }
 .rv__problem p { margin: 0; color: var(--text); font-size: 0.875rem; }
 .rv__explain { font-size: 0.875rem; }
+.rv__explain li::marker { color: var(--text-3); font-variant-numeric: tabular-nums; }
 .rv__checks { font-size: 0.8125rem; color: var(--text-2); }
-.rv__checks summary { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
-.rv__checks ol { margin: 0.4rem 0 0; padding-left: 1.4rem; display: grid; gap: 0.25rem; }
-.rv__change { display: grid; gap: 0.4rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.rv__checks summary { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; border-radius: 6px; }
+.rv__checks summary:hover { color: var(--text); }
+.rv__checks ol { margin: 0.4rem 0 0; padding-left: 1.4rem; display: grid; gap: 0.25rem; animation: rise 0.25s var(--ease); }
+.rv__change { display: grid; gap: 0.4rem; padding-top: 0.85rem; border-top: 1px solid var(--border); }
 .rv__change label { font-size: 0.875rem; font-weight: 600; }
 .rv__change-row { display: flex; gap: 0.5rem; }
 .rv__change-row .input { flex: 1; min-width: 0; }
-.rv__reply { display: flex; gap: 0.4rem; align-items: flex-start; margin: 0; font-size: 0.8125rem; color: var(--text-2); }
+.rv__reply { display: flex; gap: 0.4rem; align-items: flex-start; margin: 0; font-size: 0.8125rem; color: var(--text-2); animation: rise 0.25s var(--ease); }
 .rv__reply svg { flex-shrink: 0; margin-top: 2px; }
 .rv__reply.is-ok svg { color: var(--ok); }
 .rv__link { justify-self: start; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
-.rv__link:hover { text-decoration: underline; }
+.rv__link svg { transition: translate 0.2s var(--ease); }
+.rv__link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.rv__link:hover svg { translate: 3px 0; }
 .etool .segmented { flex-shrink: 0; }
 @media (max-width: 720px) {
   .rv__inner { padding: 1.1rem 1rem 2rem; }
+  .rv__sec--lead { padding: 1.1rem 1rem 1.2rem; border-radius: var(--r-md); }
   .rv__change-row { flex-direction: column; }
 }
+
+/* ---------- How it was done: the canvas over the logs, the tools folding to a rail ---------- */
+.editor__main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.editor__main > .editor__canvas { flex: 1; min-height: 160px; }
+
+.tabs button.tabs__close { flex: none; width: 40px; padding: 0; color: var(--text-3); }
+.tabs button.tabs__close:hover { color: var(--accent-text); }
+
+.editor__rail { flex-shrink: 0; width: 64px; border-left: 1px solid var(--border); background: var(--surface); }
+.editor__rail [role='tablist'] { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.6rem 0.4rem; }
+.editor__rail button {
+  position: relative; display: grid; justify-items: center; gap: 0.2rem; padding: 0.55rem 0 0.45rem; border: 0; border-radius: 12px;
+  background: transparent; color: var(--text-3); transition: background-color 0.16s, color 0.16s;
+}
+.editor__rail button small { font-size: 0.6875rem; font-weight: 600; }
+.editor__rail button:hover { background: var(--accent-soft); color: var(--accent-text); }
+.editor__rail .tabs__count { position: absolute; top: 3px; right: 6px; min-width: 16px; padding: 0 3px; font-size: 0.625rem; line-height: 15px; }
+
+/* Logs: a bar that opens into the step list and the chosen step's rows. */
+.logs { position: relative; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; border-top: 1px solid var(--border); background: var(--surface); }
+.logs:not(.is-dragging) { transition: height 0.22s var(--ease); }
+.logs__resize { position: absolute; left: 0; right: 0; top: -5px; height: 10px; z-index: 6; cursor: row-resize; touch-action: none; outline: none; }
+.logs__resize::after { content: ''; position: absolute; left: 50%; top: 3px; width: 38px; height: 4px; translate: -50% 0; border-radius: 4px; background: var(--border); opacity: 0; transition: opacity 0.15s, background 0.15s; }
+.logs__resize:hover::after, .logs__resize:focus-visible::after, .logs.is-dragging .logs__resize::after { opacity: 1; background: var(--accent); }
+body:has(.logs.is-dragging), body:has(.logs.is-dragging) * { cursor: row-resize !important; user-select: none; }
+
+.logs__head { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; height: 44px; padding: 0 0.6rem 0 0.4rem; }
+.logs__toggle { display: inline-flex; align-items: center; gap: 0.45rem; height: 32px; padding: 0 0.6rem; border: 0; border-radius: 8px; background: transparent; color: var(--text); font-size: 0.875rem; }
+.logs__toggle:hover { background: var(--accent-soft); }
+.logs__toggle svg { color: var(--text-3); }
+.logs__status { display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0; flex: 1; overflow: hidden; color: var(--text-3); font-size: 0.8125rem; white-space: nowrap; text-overflow: ellipsis; }
+.logs__status.is-ok { color: var(--ok, var(--accent-text)); }
+.logs__status.is-error { color: var(--danger); }
+
+.logs__body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(220px, 280px) 1fr; border-top: 1px solid var(--border); }
+.logs__steps { list-style: none; margin: 0; padding: 0.5rem; overflow: auto; border-right: 1px solid var(--border); }
+.logs__step {
+  width: 100%; display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 0.5rem;
+  padding: 0.45rem 0.55rem; border: 0; border-radius: 9px; background: transparent; color: var(--text-2); font-size: 0.8125rem; text-align: left;
+}
+.logs__step:hover { background: color-mix(in srgb, var(--accent-soft) 60%, transparent); }
+.logs__step[aria-current='true'] { background: var(--accent-soft); color: var(--text); }
+.logs__no { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2, var(--canvas-bg)); color: var(--text-3); font: 600 0.6875rem var(--font-mono); }
+.logs__step[data-state='done'] .logs__no { background: var(--accent); color: #fff; }
+.logs__step[data-state='error'] .logs__no { background: var(--danger); color: #fff; }
+.logs__icon { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; background: var(--cat-soft, var(--accent-soft)); color: var(--cat, var(--accent)); }
+.logs__name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 600; }
+.logs__count { color: var(--text-3); font: 500 0.75rem var(--font-mono); font-variant-numeric: tabular-nums; display: inline-flex; }
+.logs__step[data-state='error'] .logs__count { color: var(--danger); }
+
+.logs__detail { min-width: 0; min-height: 0; overflow: auto; padding: 0.75rem 1rem 1rem; display: flex; flex-direction: column; gap: 0.65rem; }
+.logs__title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; }
+.logs__title b { font-size: 0.9375rem; }
+.logs__msg { color: var(--text-2); font-size: 0.8125rem; }
+.logs__msg.is-error { color: var(--danger); }
+.logs__detail .segmented { align-self: flex-start; }
+.logs__scroll { overflow: auto; max-width: 100%; border: 1px solid var(--border); border-radius: 10px; }
+.logs__table { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 0.8125rem; }
+.logs__table th { position: sticky; top: 0; z-index: 1; padding: 0.45rem 0.75rem; background: var(--surface-2, var(--canvas-bg)); color: var(--text-3); font-size: 0.6875rem; font-weight: 650; letter-spacing: 0.03em; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border); }
+.logs__table td { padding: 0.4rem 0.75rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); white-space: nowrap; }
+.logs__table tr:last-child td { border-bottom: 0; }
+.logs__table td.logs__rowno { color: var(--text-3); font-family: var(--font-mono); font-size: 0.75rem; }
+.logs__table td.is-blank { color: var(--warn); font-style: italic; }
+.logs__empty, .logs__more { margin: 0; color: var(--text-3); font-size: 0.8125rem; }
+.logs__flag { display: flex; align-items: center; gap: 0.4rem; margin: 0; padding: 0.5rem 0.7rem; border-radius: 9px; background: var(--warn-soft); color: var(--warn); font-size: 0.8125rem; }
+
+@media (max-width: 900px) {
+  .editor__main { flex: none; }
+  .editor__main > .editor__canvas { height: 56vh; flex: none; }
+  .editor__rail { width: 100%; border-left: 0; border-top: 1px solid var(--border); }
+  .editor__rail [role='tablist'] { flex-direction: row; justify-content: space-around; }
+  .logs { height: auto !important; }
+  .logs__resize { display: none; }
+  .logs__body { grid-template-columns: 1fr; }
+  .logs__detail { max-height: 60vh; }
+  .logs__steps { display: flex; gap: 0.25rem; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+  .logs__step { width: auto; white-space: nowrap; }
+}
+
+.logs__table td.logs__why { color: var(--text-2); font-size: 0.75rem; }
+.logs__table tr.is-flagged td { background: color-mix(in srgb, var(--warn-soft) 70%, transparent); }
+.logs__table tr.is-flagged td.logs__why { color: var(--warn); font-weight: 600; }
+
+/* ---------- Arranging the view: Logs as a side column, tools on either side, moving the Logs by their grip ---------- */
+.editor__body { position: relative; }
+.editor__body[data-tools='left'] .editor__rail { border-left: 0; border-right: 1px solid var(--border); }
+.editor__body[data-tools='left'] .editor__side { border-right: 1px solid var(--border); }
+
+.logs.is-side { height: auto; border-top: 0; }
+.logs.is-left { border-right: 1px solid var(--border); }
+.logs.is-right { border-left: 1px solid var(--border); }
+.logs.is-side:not(.is-dragging) { transition: width 0.22s var(--ease); }
+.logs.is-side .logs__resize { top: 0; bottom: 0; left: auto; right: -5px; width: 10px; height: auto; cursor: col-resize; }
+.logs.is-right .logs__resize { right: auto; left: -5px; }
+.logs.is-side .logs__resize::after { left: 3px; top: 50%; width: 4px; height: 38px; translate: 0 -50%; }
+body:has(.logs.is-side.is-dragging), body:has(.logs.is-side.is-dragging) * { cursor: col-resize !important; }
+.logs.is-side .logs__body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+.logs.is-side .logs__steps { max-height: 34vh; border-right: 0; border-bottom: 1px solid var(--border); }
+/* Folded at the side: a slim strip with the name running down it. */
+.logs.is-side:not(.is-open) .logs__head { height: 100%; flex-direction: column; justify-content: flex-start; padding: 0.5rem 0; }
+.logs.is-side:not(.is-open) .logs__toggle { flex-direction: column; height: auto; padding: 0.6rem 0.4rem; gap: 0.6rem; writing-mode: vertical-rl; }
+.logs.is-side:not(.is-open) .logs__toggle svg { writing-mode: horizontal-tb; }
+
+.logs__grip, .logs__iconbtn {
+  flex: none; display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--text-3); transition: background-color 0.16s, color 0.16s;
+}
+.logs__grip { cursor: grab; touch-action: none; margin-right: -0.35rem; }
+.logs__grip:active { cursor: grabbing; }
+.logs__grip:hover, .logs__iconbtn:hover, .logs__iconbtn[aria-expanded='true'] { background: var(--accent-soft); color: var(--accent-text); }
+
+.lmenu { position: relative; flex: none; }
+.lmenu__panel {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; width: 280px; padding: 0.85rem;
+  display: grid; gap: 0.65rem; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-3, var(--shadow-2));
+  transform: translateY(-4px) scale(0.98); opacity: 0; transform-origin: top right; transition: transform 0.18s var(--ease), opacity 0.18s; pointer-events: none;
+}
+.lmenu__panel.is-up { top: auto; bottom: calc(100% + 6px); transform-origin: bottom right; transform: translateY(4px) scale(0.98); }
+.lmenu__panel.is-open { transform: none; opacity: 1; pointer-events: auto; }
+.lmenu__panel.is-closing { opacity: 0; transition-duration: 0.14s; }
+.lmenu__title { font-size: 0.875rem; }
+.lmenu__row { display: grid; gap: 0.35rem; }
+.lmenu__label { color: var(--text-3); font-size: 0.75rem; font-weight: 600; }
+.lmenu__opts { display: flex; gap: 0.25rem; padding: 3px; border-radius: 10px; background: var(--surface-2, var(--canvas-bg)); }
+.lmenu__opts button {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; height: 32px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--text-2); font-size: 0.8125rem; font-weight: 600; transition: background-color 0.16s, color 0.16s;
+}
+.lmenu__opts button:hover { color: var(--text); }
+.lmenu__opts button[aria-checked='true'] { background: var(--surface); color: var(--accent-text); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); }
+.lmenu__hint { margin: 0; color: var(--text-3); font-size: 0.75rem; line-height: 1.45; }
+.lmenu__reset { justify-self: start; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.5rem; margin-left: -0.5rem; border: 0; border-radius: 8px; background: transparent; color: var(--text-2); font-size: 0.8125rem; }
+.lmenu__reset:hover { background: var(--accent-soft); color: var(--accent-text); }
+
+/* While the Logs are being moved: where they can go. */
+.dockzones { position: absolute; inset: 0; z-index: 50; pointer-events: none; }
+.dockzones__zone {
+  position: absolute; display: grid; place-items: center; border: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 14px;
+  background: color-mix(in srgb, var(--accent-soft) 45%, transparent); color: var(--accent-text); font-size: 0.875rem; font-weight: 650;
+  transition: background-color 0.12s, border-color 0.12s;
+}
+.dockzones__zone.is-left { left: 10px; top: 10px; bottom: 10px; width: 22%; }
+.dockzones__zone.is-right { right: 10px; top: 10px; bottom: 10px; width: 22%; }
+.dockzones__zone.is-bottom { left: calc(22% + 20px); right: calc(22% + 20px); bottom: 10px; height: 40%; }
+.dockzones__zone.is-hot { border-color: var(--accent); background: color-mix(in srgb, var(--accent-soft) 85%, transparent); }
+body:has(.dockzones), body:has(.dockzones) * { cursor: grabbing !important; user-select: none; }
